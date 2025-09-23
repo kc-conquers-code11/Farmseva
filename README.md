@@ -1,4 +1,4 @@
-# FARM-SEVA Prototype (Hackathon-ready)
+# FARM-SEVA Prototype 
 
 This is a minimal, fully local prototype of FARM-SEVA:
 - Frontend: React + Vite + Tailwind
