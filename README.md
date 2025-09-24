@@ -26,7 +26,7 @@ FarmSeva is an innovative agriculture platform designed to help farmers, veterin
 | Layer        | Technologies Used                                 |
 |--------------|---------------------------------------------------|
 | **Frontend** | React.js, React Native, Tailwind, Redux           |
-| **Backend**  | Node.js, Express, REST APIs, MongoDB, PostgreSQL, GraphQL, Firebase, Supabase |
+| **Backend**  | Node.js, Express, REST APIs, MongoDB, PostgreSQL, GraphQL, Firebase |
 | **AI/ML**    | TensorFlow, PyTorch, Scikit-learn, Custom LLM, ChatGPT API, Gemini |
 | **APIs**     | Google Maps, Govt Schemes, Razorpay, Twilio, WhatsApp Business |
 | **Deployment**| AWS, Azure, GCP, Docker, Kubernetes, GitHub Actions |
