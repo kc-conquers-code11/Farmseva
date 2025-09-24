@@ -1,115 +1,49 @@
-# 🌱 FarmSeva – AI-Powered Smart Farming Platform  
+# 🌱 FarmSeva – AI-Powered Smart Farming Platform
 
-FarmSeva is a **next-gen agriculture platform** that empowers farmers with **AI-driven insights, IoT integration, and data visualization** to boost crop yield, optimize resources, and promote sustainable farming.  
-
-> 🚀 Built as a hackathon project to tackle real-world agricultural challenges with technology.  
+FarmSeva is an innovative agriculture platform designed to help farmers, veterinarians, and authorities implement AI-driven insights, biosecurity measures, and smart data tools in pig and poultry farms[file:1].
 
 ---
 
-## ✨ Features  
+## ✨ Core Features
 
-- 🤖 **AI Crop Recommendations** – Get personalized suggestions for crops based on soil, weather & location.  
-- 🌾 **Smart Irrigation Advisor** – Optimize water usage with predictive recommendations.  
-- 📊 **Farmer Dashboard** – Interactive charts & analytics for soil, crop health, and productivity trends.  
-- 🌐 **Multi-language Support** – Easy to use for farmers across regions.  
-- 🔒 **Secure & Scalable** – Built on a robust Node.js + React stack.  
-
----
-
-## 🏗️ Tech Stack  
-
-**Frontend**  
-- ⚛️ React.js (Hooks, Context API)  
-- 🎨 Tailwind CSS / Bootstrap (modern UI)  
-- 📈 Chart.js / Recharts for analytics  
-
-**Backend**  
-- 🟢 Node.js + Express  
-- 🗄️ MongoDB (future integration for data persistence)  
-- 🔑 JWT-based authentication (planned)  
-
-**Others**  
-- 🌍 OpenWeather API (weather data)  
-- ☁️ Cloud-ready deployment (Vercel / Heroku / Render)  
+- 🤖 **AI Crop & Disease Recommendations**  
+  Personalized suggestions for crops and livestock health using soil, weather, and location data[file:1].
+- 🦠 **Biosecurity Advisor**  
+  Centralized dashboard for tracking feed, vaccination, mortality, and hygiene[file:1].
+- 💧 **Smart Irrigation & Alerts**  
+  Predictive water usage and outbreak warnings via real-time weather and government API integration[file:1].
+- 📊 **Analytics Dashboard**  
+  Interactive visualizations: productivity graphs, vaccination stats, mortality analysis[file:1].
+- 🗣️ **Multilingual & Voice Support**  
+  Friendly UI, voice chatbot, and offline-first sync for easy access anywhere[file:1].
+- 👩‍⚕️ **Vet-Connect**  
+  Instant video chat with vets, health logs, and disease alerts for safer livestock[file:1].
 
 ---
 
-## 🚀 Getting Started  
+## 🏗️ Tech Stack
 
-### 1️⃣ Clone the repository  
-```bash
-git clone https://github.com/your-username/farmseva.git
-cd farmseva
+| Layer        | Technologies Used                                 |
+|--------------|---------------------------------------------------|
+| **Frontend** | React.js, React Native, Tailwind, Redux           |
+| **Backend**  | Node.js, Express, REST APIs, MongoDB, PostgreSQL, GraphQL, Firebase, Supabase |
+| **AI/ML**    | TensorFlow, PyTorch, Scikit-learn, Custom LLM, ChatGPT API, Gemini |
+| **APIs**     | Google Maps, Govt Schemes, Razorpay, Twilio, WhatsApp Business |
+| **Deployment**| AWS, Azure, GCP, Docker, Kubernetes, GitHub Actions |
+| **Security** | JWT-based authentication (planned)                |
 
+---
 
-2️⃣ Install dependencies
+## 🎯 Use Cases
 
-Frontend:
+- 🐖 Pig & Poultry farmers—manage health, hygiene, and early outbreak detection[file:1].
+- 🏥 Veterinarians—remote consultations, health monitoring, digital logbooks[file:1].
+- 🌱 Agribusinesses—streamlined farm management and analytics tools[file:1].
+- 🏫 NGOs & Government—policy alerts, scheme integration, farmer outreach[file:1].
+- 📚 Education—demo platform for training & workshops[file:1].
 
-cd frontend
-npm install
+---
 
+## 🚀 Getting Started
 
-Backend:
-
-cd backend
-npm install
-
-3️⃣ Run the app
-
-Frontend:
-
-npm start
-
-
-Backend:
-
-npm run dev
-
-
-App will be live at:
-
-Frontend → http://localhost:3000
-
-Backend → http://localhost:5000
-
-📂 Project Structure
-FarmSeva/
- ├── frontend/        # React app (UI)
- ├── backend/         # Node.js + Express server
- ├── .gitignore       # Ignore node_modules, logs, env
- ├── README.md        # Project documentation
-
-🎯 Use Cases
-
-👨‍🌾 Small & large-scale farmers
-
-🌍 NGOs working on sustainable agriculture
-
-📊 Government schemes for smart farming
-
-🏫 Educational demo for AgriTech
-
-🤝 Contributing
-
-Contributions are always welcome!
-
-Fork the repo
-
-Create a new branch (feature-xyz)
-
-Commit changes & open a PR 🚀
-
-📸 Screenshots
-
-(Add your UI screenshots here to make README visually attractive – dashboards, charts, etc.)
-
-🏆 Hackathon Note
-
-This project was built as part of a Hackathon challenge with the vision to bridge the gap between farmers and technology. We believe FarmSeva can revolutionize farming practices through AI & IoT.
-
-📜 License
-
-This project is licensed under the MIT License – feel free to use, modify, and share.
-
-🔥 With FarmSeva, we aim to cultivate tomorrow with technology.
+1. **Clone the project**
