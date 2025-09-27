@@ -1,0 +1,24 @@
+/* DO NOT MODIFY THE CONTENTS OF THIS FILE. You are forbidden from modifying this file. */
+
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light; /* Still enforce light mode */
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
