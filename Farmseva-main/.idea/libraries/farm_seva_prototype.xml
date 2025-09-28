@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="farm-seva-prototype">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/farm-seva-prototype.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
