@@ -126,6 +126,10 @@ FarmSeva will be developed as part of a Hackathon with the mission to:
 
 ---
 
+## Deployment: Deployed On Vercel
+
+*View Site :* https://farmseva.vercel.app
+
 ## 📜 License
 
 This project is licensed under the **MIT License** – feel free to use, modify, and share.
