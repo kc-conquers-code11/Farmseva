@@ -118,7 +118,7 @@ FarmSeva/
 
 ---
 
-## 🏆 Hackathon Note
+## 🏆 Hackathon Note (SIH 2k25)
 
 FarmSeva will be developed as part of a Hackathon with the mission to:
 
@@ -126,7 +126,7 @@ FarmSeva will be developed as part of a Hackathon with the mission to:
 
 ---
 
-## Deployment: Deployed On Vercel
+## Deployment: Deployed On Vercel 
 
 *View Site :* https://farmseva.vercel.app
 
@@ -136,4 +136,4 @@ This project is licensed under the **MIT License** – feel free to use, modify,
 
 ---
 
-🔥 FarmSeva: **Protecting Pigs & Poultry, Securing the Future of Farming**
+🔥 FarmSeva: **Protecting Pigs & Poultry, Securing the Future of Farming** 
