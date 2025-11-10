@@ -7,51 +7,51 @@
 
 ---
 
-## 🛡️ Why FarmSeva?  
+##  Why FarmSeva?  
 
 Pig and poultry farms face major risks from diseases like **Avian Influenza** and **African Swine Fever**, leading to economic losses and food security challenges.  
 FarmSeva empowers farmers with:  
-- 📊 **Risk assessment & compliance tracking**  
-- 📱 **Mobile-first, multilingual design**  
-- 🧑‍⚕️ **Vet-connect & training modules**  
-- 🔔 **Real-time outbreak alerts**  
-- 📂 **Digital farm record-keeping**  
+- **Risk assessment & compliance tracking**  
+- **Mobile-first, multilingual design**  
+- **Vet-connect & training modules**  
+- **Real-time outbreak alerts**  
+- **Digital farm record-keeping**  
 
 ---
 
 ## ✨ Key Features  
 
-- 🌍 **Customizable Risk Assessment** – Tools tailored to local epidemiological conditions.  
-- 📚 **Training & Best Practices** – Interactive modules for pig & poultry biosecurity.  
-- ✅ **Compliance Tracking** – Digital records aligned with regulatory frameworks.  
-- 🔔 **Real-time Alerts** – Notifications on disease outbreaks & biosecurity breaches.  
-- 📊 **Farmer Dashboard** – Monitor vaccination, hygiene, mortality, and productivity.  
-- 🧑‍⚕️ **Vet-Connect** – Instant video/chat with veterinarians & smart health logs.  
-- 🧠 **AI/ML-based Prediction** – Early warnings for bird flu, swine flu, heat stress.  
-- 🔒 **Offline-first + Cloud Sync** – Works without internet and syncs when connected.  
-- 🗣️ **Multilingual + Voice Assistant** – Ensures accessibility for rural farmers.  
+- **Customizable Risk Assessment** – Tools tailored to local epidemiological conditions.  
+- **Training & Best Practices** – Interactive modules for pig & poultry biosecurity.  
+- **Compliance Tracking** – Digital records aligned with regulatory frameworks.  
+- **Real-time Alerts** – Notifications on disease outbreaks & biosecurity breaches.  
+- **Farmer Dashboard** – Monitor vaccination, hygiene, mortality, and productivity.  
+- **Vet-Connect** – Instant video/chat with veterinarians & smart health logs.  
+- **AI/ML-based Prediction** – Early warnings for bird flu, swine flu, heat stress.  
+- **Offline-first + Cloud Sync** – Works without internet and syncs when connected.  
+- **Multilingual + Voice Assistant** – Ensures accessibility for rural farmers.  
 
 ---
 
-## 🏗️ Tech Stack  
+## Tech Stack  
 
 **Frontend**  
-- ⚛️ React.js  
-- 🎨 Tailwind CSS / Bootstrap  
-- 📈 Recharts / Chart.js  
+- React.js  
+- Tailwind CSS / Bootstrap  
+- Recharts / Chart.js  
 
 **Backend**  
-- 🟢 Node.js + Express  
-- 🗄️ MongoDB (planned integration)  
-- 🔑 Authentication (Email/OTP/Password)  
+- Node.js + Express  
+- MongoDB (planned integration)  
+- Authentication (Email/OTP/Password)  
 
 **Others**  
-- 🌦️ Weather & Govt. API integration  
-- 📡 Cloud-ready (Vercel / Render / Heroku)  
+- Weather & Govt. API integration  
+- Cloud-ready (Vercel / Render / Heroku)  
 
 ---
 
-## 🚀 Getting Started  
+##  Getting Started  
 
 ### 1️⃣ Clone the repository  
 ```bash
@@ -110,11 +110,11 @@ FarmSeva/
 
 ## 🎯 Expected Impact
 
-* 🐓🐖 Improved biosecurity in pig & poultry farms
-* 🛡️ Early disease detection & outbreak control
-* 📊 Data-driven decision making for farmers & authorities
-* 🤝 Stronger collaboration between farmers, vets & policymakers
-* 🌍 Increased resilience against zoonotic and transboundary diseases
+* Improved biosecurity in pig & poultry farms
+* Early disease detection & outbreak control
+* Data-driven decision making for farmers & authorities
+* Stronger collaboration between farmers, vets & policymakers
+* Increased resilience against zoonotic and transboundary diseases
 
 ---
 
