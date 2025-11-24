@@ -45,14 +45,19 @@ export default function AdminDashboardPage() {
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
+  // for inline updates
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
   // Fetch user stats from Supabase
   useEffect(() => {
     async function fetchData() {
       setLoadingData(true);
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, phone, created_at');
+const { data, error } = await supabase
+  .from('profiles')
+  .select('id, fullname, role, phone, created_at');
+
 
       if (!error && data) {
         const farmers = data.filter((p) => p.role === 'farmer').length;
@@ -66,16 +71,17 @@ export default function AdminDashboardPage() {
           total: data.length,
         });
 
-        setProfiles(
-          data.map((p: any) => ({
-            id: p.id,
-            full_name: p.full_name,
-            email: null, // we are not selecting email here to keep it light
-            phone: p.phone,
-            role: p.role,
-            created_at: p.created_at,
-          }))
-        );
+       setProfiles(
+  data.map((p: any) => ({
+    id: p.id,
+    full_name: p.fullname, // <- yahan fullname
+    email: null,
+    phone: p.phone,
+    role: p.role,
+    created_at: p.created_at,
+  }))
+);
+
       }
 
       setLoadingData(false);
@@ -117,21 +123,8 @@ export default function AdminDashboardPage() {
     },
   ];
 
+  // loading state while session resolving
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Icon
-            icon="mdi:loading"
-            className="w-8 h-8 animate-spin text-green-600 mx-auto mb-4"
-          />
-          <p className="text-neutral-600">Loading admin session…</p>
-        </div>
-      </div>
-    );
-  }
-
-    if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -148,7 +141,7 @@ export default function AdminDashboardPage() {
   // --- Role guard – only admins allowed (by role OR email) ---
   const isAdmin =
     !!user &&
-    (user.role === "admin" || user.email === "admin@farmseva.in");
+    (user.role === 'admin' || user.email === 'admin@farmseva.in');
 
   if (!isAdmin) {
     return (
@@ -157,10 +150,7 @@ export default function AdminDashboardPage() {
         <div className="pt-16 flex items-center justify-center">
           <Card>
             <div className="flex flex-col items-center gap-3">
-              <Icon
-                icon="mdi:shield-lock"
-                className="w-8 h-8 text-red-500"
-              />
+              <Icon icon="mdi:shield-lock" className="w-8 h-8 text-red-500" />
               <h2 className="text-lg font-semibold text-neutral-800">
                 Access Restricted
               </h2>
@@ -172,10 +162,62 @@ export default function AdminDashboardPage() {
           </Card>
         </div>
       </div>
-      
     );
   }
 
+  // --- change user role from admin panel ---
+  async function handleRoleChange(id: string, newRole: string) {
+    try {
+      setUpdatingUserId(id);
+      setUpdateMessage(null);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', id);
+
+      if (error) {
+        console.error(error);
+        setUpdateMessage('Could not update role. Try again.');
+        return;
+      }
+
+      // update local profiles list
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                role: newRole,
+              }
+            : p
+        )
+      );
+
+      // recalc stats quickly
+      setStats((prev) => {
+        const oldProfile = profiles.find((p) => p.id === id);
+        if (!oldProfile || oldProfile.role === newRole) return prev;
+
+        let { farmers, vets, admins, total } = prev;
+
+        if (oldProfile.role === 'farmer') farmers--;
+        else if (oldProfile.role === 'vet') vets--;
+        else if (oldProfile.role === 'admin') admins--;
+
+        if (newRole === 'farmer') farmers++;
+        else if (newRole === 'vet') vets++;
+        else if (newRole === 'admin') admins++;
+
+        return { farmers, vets, admins, total };
+      });
+
+      setUpdateMessage('Role updated successfully.');
+    } finally {
+      setUpdatingUserId(null);
+      setTimeout(() => setUpdateMessage(null), 3000);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -311,7 +353,7 @@ export default function AdminDashboardPage() {
                       User distribution by role
                     </h2>
                   </div>
-                  <span className="text-xs text-neutral-500">
+                <span className="text-xs text-neutral-500">
                     Live from profiles table
                   </span>
                 </div>
@@ -403,6 +445,10 @@ export default function AdminDashboardPage() {
                 </span>
               </div>
 
+              {updateMessage && (
+                <p className="text-xs text-emerald-700 mb-2">{updateMessage}</p>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
@@ -419,13 +465,16 @@ export default function AdminDashboardPage() {
                       <th className="text-left px-3 py-2 font-medium text-neutral-700">
                         Joined
                       </th>
+                      <th className="text-left px-3 py-2 font-medium text-neutral-700">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {profiles.length === 0 && !loadingData && (
                       <tr>
                         <td
-                          colSpan={4}
+                          colSpan={5}
                           className="text-center py-6 text-neutral-500"
                         >
                           No profiles found yet. Ask farmers and vets to
@@ -465,6 +514,20 @@ export default function AdminDashboardPage() {
                             ? new Date(p.created_at).toLocaleDateString()
                             : '—'}
                         </td>
+                        <td className="px-3 py-2">
+                          <select
+                            className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white"
+                            value={p.role || 'farmer'}
+                            disabled={updatingUserId === p.id}
+                            onChange={(e) =>
+                              handleRoleChange(p.id, e.target.value)
+                            }
+                          >
+                            <option value="farmer">Farmer</option>
+                            <option value="vet">Vet</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -477,4 +540,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

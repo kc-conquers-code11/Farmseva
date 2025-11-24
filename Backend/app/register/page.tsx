@@ -26,13 +26,15 @@ export default function RegisterPage() {
       setError(error?.message || "Registration failed");
       return;
     }
+const { error: profileError } = await supabase
+  .from("profiles")
+  .insert({
+    id: data.user.id,
+    fullname: name, // 👈 column ka sahi naam
+    phone,
+    role,
+  });
 
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      full_name: fullName,
-      phone,
-      role,
-    });
 
     if (profileError) {
       setError("Profile save failed: " + profileError.message);

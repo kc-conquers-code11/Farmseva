@@ -32,14 +32,22 @@ export function useSupabaseUser() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, role")
-        .eq("id", user.id)
-        .single();
+  const { data: profile } = await supabase
+  .from("profiles")
+  .select("fullname, role")
+  .eq("id", user.id)
+  .single();
 
-      const displayName =
-        profile?.full_name || user.email?.split("@")[0] || "Farmer";
+const displayName =
+  (profile as any)?.fullname || user.email?.split("@")[0] || "Farmer";
+
+setUser({
+  id: user.id,
+  email: user.email,
+  displayName,
+  role: (profile as any)?.role ?? null,
+});
+
 
       setUser({
         id: user.id,
