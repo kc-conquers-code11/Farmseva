@@ -131,8 +131,26 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Role guard – only admins allowed
-  if (user?.role !== 'admin') {
+    if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Icon
+            icon="mdi:loading"
+            className="w-8 h-8 animate-spin text-green-600 mx-auto mb-4"
+          />
+          <p className="text-neutral-600">Loading admin session…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Role guard – only admins allowed (by role OR email) ---
+  const isAdmin =
+    !!user &&
+    (user.role === "admin" || user.email === "admin@farmseva.in");
+
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
@@ -154,8 +172,10 @@ export default function AdminDashboardPage() {
           </Card>
         </div>
       </div>
+      
     );
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -457,3 +477,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

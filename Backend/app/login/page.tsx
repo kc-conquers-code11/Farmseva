@@ -24,13 +24,19 @@ export default function LoginPage() {
       return;
     }
 
+    // role from profiles
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", data.user.id)
       .single();
 
-    const role = profile?.role || "farmer";
+    let role = profile?.role || "farmer";
+
+    // hard override for specific email
+    if (data.user.email === "admin@farmseva.in") {
+      role = "admin";
+    }
 
     if (role === "admin") router.push("/dashboard/admin");
     else if (role === "vet") router.push("/dashboard/vet");
