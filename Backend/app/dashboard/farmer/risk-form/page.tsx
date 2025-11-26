@@ -1,4 +1,3 @@
-//fixed risk asessment and farmer dashboard
 "use client";
 
 import React, { useState } from "react";
@@ -11,21 +10,37 @@ import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { supabase } from "@/lib/supabaseClient";
 
 type FormState = {
+  // --- Section 1: Demographics ---
   farmName: string;
   species: "pig" | "poultry" | "mixed";
   herdSize: string;
   state: string;
   district: string;
 
+  // --- Section 2: Housing & Biosecurity ---
   housing: "open" | "semi" | "closed";
   visitors: "none" | "log" | "log_footbath_ppe";
   deadDisposal: "open_pit" | "covered_pit" | "incineration";
-  vaccination: "none" | "occasional" | "regular";
   wildBirdContact: "high" | "medium" | "low";
-  cleaningFreq: "weekly" | "twice_week" | "daily";
+  
+  // NEW FROM UPLOADED FILES:
+  equipmentHygiene: "none" | "occasional" | "strict"; // From BiosecurityForm
+  fencing: "none" | "partial" | "secure"; // From BiosecurityForm (Unauthorized access)
 
-  recentMortality: "no" | "yes";
-  mortalityNotes: string;
+  // --- Section 3: Operations & Environment (NEW SECTION) ---
+  cleaningFreq: "weekly" | "twice_week" | "daily";
+  
+  // NEW FROM UPLOADED FILES:
+  ventilation: "poor" | "moderate" | "good"; // From EnvironmentalForm
+  tempControl: "no" | "yes"; // From EnvironmentalForm (Pig/Poultry Temp)
+  feedStorage: "open" | "sealed_dry"; // From FeedNutritionForm
+  waterSource: "open_pond" | "borewell" | "municipal"; // Critical addition for accuracy
+  recordKeeping: "none" | "basic" | "detailed"; // From OperationalForm
+
+  // --- Section 4: Health ---
+  vaccination: "none" | "occasional" | "regular";
+  recentMortality: "no" | "yes"; // From AnimalHealthForm (Sudden deaths)
+  mortalityNotes: string; // From AnimalHealthForm (Visible wounds, strange behavior)
 };
 
 const initialForm: FormState = {
@@ -38,10 +53,18 @@ const initialForm: FormState = {
   housing: "semi",
   visitors: "log",
   deadDisposal: "covered_pit",
-  vaccination: "occasional",
   wildBirdContact: "medium",
-  cleaningFreq: "twice_week",
+  equipmentHygiene: "occasional",
+  fencing: "partial",
 
+  cleaningFreq: "twice_week",
+  ventilation: "moderate",
+  tempControl: "no",
+  feedStorage: "open",
+  waterSource: "borewell",
+  recordKeeping: "basic",
+
+  vaccination: "occasional",
   recentMortality: "no",
   mortalityNotes: "",
 };
@@ -82,10 +105,7 @@ export default function FarmerRiskFormPage() {
     );
   }
 
-  if (!user) {
-    // useSupabaseUser already redirects to /login, but keep a fallback
-    return null;
-  }
+  if (!user) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,7 +114,6 @@ export default function FarmerRiskFormPage() {
     setSubmitting(true);
 
     try {
-      // Safety: user should never be null here, but TS + runtime guard
       if (!user) {
         setErrorMsg("Session expired. Please login again.");
         setSubmitting(false);
@@ -125,7 +144,7 @@ export default function FarmerRiskFormPage() {
         return;
       }
 
-      // 2) Call risk assessment API (this writes to risk_assessments table)
+      // 2) Call risk assessment API
       const res = await fetch("/api/risk/assess", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,23 +157,16 @@ export default function FarmerRiskFormPage() {
 
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        console.error("Risk API error:", j);
         setErrorMsg(j.error || "Risk assessment failed. Please try again.");
         setSubmitting(false);
         return;
       }
 
-      const json = await res.json();
-      console.log("Risk API result:", json);
-
       setSuccessMsg("Risk assessment completed successfully.");
-      setSubmitting(false);
-
-      // Small delay so user can read success message
+      
       setTimeout(() => {
-        // Farmer dashboard risk tab
         router.push("/dashboard/farmer?tab=risk");
-      }, 600);
+      }, 800);
     } catch (err) {
       console.error(err);
       setErrorMsg("Something went wrong. Please try again.");
@@ -177,11 +189,10 @@ export default function FarmerRiskFormPage() {
                 />
                 <div>
                   <h1 className="text-xl font-semibold text-neutral-800">
-                    Know Your Farm – Risk Checklist
+                    Comprehensive Risk Checklist
                   </h1>
                   <p className="text-sm text-neutral-600">
-                    Answer a few questions about your pig / poultry farm. We use
-                    this to calculate a simple risk score and show easy-to-understand suggestions.
+                    Complete this form to get an accurate analysis of your farm's health.
                   </p>
                 </div>
               </div>
@@ -196,238 +207,285 @@ export default function FarmerRiskFormPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Farm basics */}
+              {/* --- SECTION 1: FARM DETAILS --- */}
               <section className="space-y-4">
-                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-                  Farm details
+                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide border-b pb-2">
+                  1. Farm Details
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Farm name
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Farm Name</label>
                     <input
                       type="text"
                       value={form.farmName}
                       onChange={updateField("farmName")}
-                      placeholder="e.g. Green Valley Poultry Farm"
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g. Green Valley Farm"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Species
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Species</label>
                     <select
                       value={form.species}
                       onChange={updateField("species")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
                       <option value="pig">Pig</option>
                       <option value="poultry">Poultry</option>
                       <option value="mixed">Mixed (Pig + Poultry)</option>
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Herd / Flock size (approx.)
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Herd/Flock Size</label>
                     <input
                       type="number"
                       min={0}
                       value={form.herdSize}
                       onChange={updateField("herdSize")}
-                      placeholder="e.g. 300"
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g. 500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm text-neutral-700 mb-1">
-                        State
-                      </label>
+                      <label className="block text-sm text-neutral-700 mb-1">State</label>
                       <input
                         type="text"
                         value={form.state}
                         onChange={updateField("state")}
-                        placeholder="e.g. Maharashtra"
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-neutral-700 mb-1">
-                        District
-                      </label>
+                      <label className="block text-sm text-neutral-700 mb-1">District</label>
                       <input
                         type="text"
                         value={form.district}
                         onChange={updateField("district")}
-                        placeholder="e.g. Pune"
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                       />
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* Biosecurity practices */}
+              {/* --- SECTION 2: BIOSECURITY --- */}
               <section className="space-y-4">
-                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-                  Housing & Biosecurity
+                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide border-b pb-2">
+                  2. Biosecurity Infrastructure
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Housing type
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Housing Type</label>
                     <select
                       value={form.housing}
                       onChange={updateField("housing")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
-                      <option value="open">Open / backyard</option>
+                      <option value="open">Open / Backyard (Low security)</option>
                       <option value="semi">Semi-covered sheds</option>
-                      <option value="closed">
-                        Closed, well-ventilated sheds
-                      </option>
+                      <option value="closed">Closed / Controlled Environment</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Visitor control
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Perimeter Fencing</label>
+                    <select
+                      value={form.fencing}
+                      onChange={updateField("fencing")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="none">No fencing (Open access)</option>
+                      <option value="partial">Partial / Damaged fencing</option>
+                      <option value="secure">Secure perimeter (No stray animals)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Visitor Control</label>
                     <select
                       value={form.visitors}
                       onChange={updateField("visitors")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
-                      <option value="none">
-                        Everyone can enter, no log book
-                      </option>
-                      <option value="log">Visitor log only</option>
-                      <option value="log_footbath_ppe">
-                        Log + footbath + separate boots / PPE
-                      </option>
+                      <option value="none">Anyone can enter</option>
+                      <option value="log">Logbook only</option>
+                      <option value="log_footbath_ppe">Logbook + Footbath + PPE</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Dead animal disposal
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Vehicle & Equipment Hygiene</label>
+                    <select
+                      value={form.equipmentHygiene}
+                      onChange={updateField("equipmentHygiene")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="none">Shared equipment, no cleaning</option>
+                      <option value="occasional">Cleaned occasionally with water</option>
+                      <option value="strict">Disinfected before every entry</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Dead Animal Disposal</label>
                     <select
                       value={form.deadDisposal}
                       onChange={updateField("deadDisposal")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
-                      <option value="open_pit">Open pit / exposed area</option>
-                      <option value="covered_pit">
-                        Covered pit with lime / fencing
-                      </option>
-                      <option value="incineration">
-                        Incineration / deep burial with full protocol
-                      </option>
+                      <option value="open_pit">Throw in open / nearby field</option>
+                      <option value="covered_pit">Deep burial / Covered pit</option>
+                      <option value="incineration">Incineration (Burned)</option>
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Vaccination & deworming
-                    </label>
-                    <select
-                      value={form.vaccination}
-                      onChange={updateField("vaccination")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="none">No regular vaccination</option>
-                      <option value="occasional">
-                        Occasional, only during outbreaks
-                      </option>
-                      <option value="regular">
-                        Regular schedule as advised by vet
-                      </option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Wild bird / stray animal contact
-                    </label>
+                   <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Wild Bird / Stray Contact</label>
                     <select
                       value={form.wildBirdContact}
                       onChange={updateField("wildBirdContact")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
-                      <option value="high">
-                        High – birds / stray pigs / dogs enter sheds
-                      </option>
-                      <option value="medium">
-                        Medium – sometimes seen near sheds
-                      </option>
-                      <option value="low">
-                        Low – sheds mostly closed and fenced
-                      </option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Shed cleaning & disinfection
-                    </label>
-                    <select
-                      value={form.cleaningFreq}
-                      onChange={updateField("cleaningFreq")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="weekly">Once a week or less</option>
-                      <option value="twice_week">2–3 times a week</option>
-                      <option value="daily">
-                        Daily cleaning + disinfectant
-                      </option>
+                      <option value="high">High (Birds enter sheds easily)</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low (Nets installed)</option>
                     </select>
                   </div>
                 </div>
               </section>
 
-              {/* Health status */}
+              {/* --- SECTION 3: OPERATIONS & ENVIRONMENT (NEW) --- */}
               <section className="space-y-4">
-                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">
-                  Recent health situation
+                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide border-b pb-2">
+                  3. Operations & Environment
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-neutral-700 mb-1">
-                      Any unusual deaths / sudden mortality in last 30 days?
-                    </label>
+                    <label className="block text-sm text-neutral-700 mb-1">Ventilation Quality</label>
+                    <select
+                      value={form.ventilation}
+                      onChange={updateField("ventilation")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="poor">Poor (Smell of ammonia/stuffiness)</option>
+                      <option value="moderate">Average airflow</option>
+                      <option value="good">Good (Fans/Cross-ventilation)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Temperature Control</label>
+                    <select
+                      value={form.tempControl}
+                      onChange={updateField("tempControl")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="no">No specific control (Natural)</option>
+                      <option value="yes">Yes (Heaters/Coolers/Foggers)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Feed Storage</label>
+                    <select
+                      value={form.feedStorage}
+                      onChange={updateField("feedStorage")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="open">Open bags (Risk of moisture/rats)</option>
+                      <option value="sealed_dry">Sealed containers / Silos</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Water Source</label>
+                    <select
+                      value={form.waterSource}
+                      onChange={updateField("waterSource")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="open_pond">Open pond / Canal</option>
+                      <option value="municipal">Municipal / Tanker</option>
+                      <option value="borewell">Deep Borewell (Safest)</option>
+                    </select>
+                  </div>
+
+                   <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Cleaning Frequency</label>
+                    <select
+                      value={form.cleaningFreq}
+                      onChange={updateField("cleaningFreq")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="weekly">Once a week or less</option>
+                      <option value="twice_week">2-3 times a week</option>
+                      <option value="daily">Daily cleaning</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Record Keeping</label>
+                    <select
+                      value={form.recordKeeping}
+                      onChange={updateField("recordKeeping")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="none">No written records</option>
+                      <option value="basic">Basic notes (Sales/Mortality)</option>
+                      <option value="detailed">Detailed (Feed, Meds, Visitors)</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              {/* --- SECTION 4: HEALTH STATUS --- */}
+              <section className="space-y-4">
+                <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide border-b pb-2">
+                  4. Current Health Status
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Vaccination Schedule</label>
+                    <select
+                      value={form.vaccination}
+                      onChange={updateField("vaccination")}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
+                    >
+                      <option value="none">No regular vaccination</option>
+                      <option value="occasional">Only during outbreaks</option>
+                      <option value="regular">Regular (As per Vet schedule)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-neutral-700 mb-1">Sudden Deaths (Last 30 Days)</label>
                     <select
                       value={form.recentMortality}
                       onChange={updateField("recentMortality")}
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     >
                       <option value="no">No</option>
                       <option value="yes">Yes</option>
                     </select>
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label className="block text-sm text-neutral-700 mb-1">
-                      If yes, briefly describe (age group, symptoms, numbers)
+                      Health Observations (Wounds, Strange Behavior, Diarrhea)
                     </label>
                     <textarea
                       rows={3}
                       value={form.mortalityNotes}
                       onChange={updateField("mortalityNotes")}
-                      placeholder="Example: sudden death in 8–10 week old birds, greenish diarrhoea, 15 deaths in 2 days."
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="E.g., 5 birds stopped eating, 2 pigs have skin redness..."
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm"
                     />
                   </div>
                 </div>
               </section>
 
-              {/* Messages */}
+              {/* Messages & Submit */}
               {errorMsg && (
                 <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
                   {errorMsg}
@@ -439,17 +497,11 @@ export default function FarmerRiskFormPage() {
                 </div>
               )}
 
-              {/* Submit */}
-              <div className="flex items-center justify-between pt-2">
-                <p className="text-xs text-neutral-500 max-w-sm">
-                  We never show farm-level details publicly. The risk score is
-                  only for you and your vet / department to plan better
-                  biosecurity.
-                </p>
+              <div className="flex items-center justify-end pt-4">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center px-5 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-6 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
                 >
                   {submitting && (
                     <Icon
@@ -457,9 +509,7 @@ export default function FarmerRiskFormPage() {
                       className="w-4 h-4 animate-spin mr-2"
                     />
                   )}
-                  {submitting
-                    ? "Calculating risk…"
-                    : "Submit & calculate risk"}
+                  {submitting ? "Analyzing..." : "Calculate Risk Score"}
                 </button>
               </div>
             </form>
