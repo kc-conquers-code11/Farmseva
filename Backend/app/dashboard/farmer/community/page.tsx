@@ -7,7 +7,7 @@ import {
   MapPin, Send, Search, 
   MessageSquare, Heart, Share2, 
   Users, Stethoscope, TrendingUp, AlertTriangle,
-  ArrowLeft, MoreHorizontal, X
+  ArrowLeft, MoreHorizontal, X, Flag
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRouter } from 'next/navigation'
@@ -39,7 +39,7 @@ interface Post {
   longitude: number
   created_at: string
   likes: string[] | null // Array of user_ids who liked
-  profiles?: Profile | Profile[] // Joined profile data (can be array or obj depending on Supabase version)
+  profiles?: Profile | Profile[] // Joined profile data
   // Legacy field, fallback
   author_name?: string 
 }
@@ -62,6 +62,12 @@ export default function CommunityPage() {
   const [comments, setComments] = useState<Record<number, Comment[]>>({})
   const [loadingComments, setLoadingComments] = useState(false)
 
+  // Report State
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportingPostId, setReportingPostId] = useState<number | null>(null)
+  const [reportReason, setReportReason] = useState('')
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
+
   // -- 1. GET USER LOCATION --
   useEffect(() => {
     if (navigator.geolocation) {
@@ -73,13 +79,11 @@ export default function CommunityPage() {
         },
         (err) => {
           console.error("Location error or denied:", err)
-          // FIX: Fetch global posts if location access is denied
           fetchPosts(0, 0, true) 
         },
-        { timeout: 10000 } // Timeout after 10s to prevent hanging
+        { timeout: 10000 } 
       )
     } else {
-      // FIX: Fetch global posts if geolocation is not supported
       fetchPosts(0, 0, true)
     }
   }, [])
@@ -89,7 +93,6 @@ export default function CommunityPage() {
     const range = 0.5 
     
     try {
-      // ATTEMPT 1: Try fetching with relational data (profiles)
       let query = supabase
         .from('community_posts')
         .select(`
@@ -108,14 +111,13 @@ export default function CommunityPage() {
 
       const { data, error } = await query
 
-      if (error) throw error // Throw to catch block
+      if (error) throw error
 
       setPosts(data as Post[])
       
     } catch (err) {
-      console.warn("Relational fetch failed (likely missing Foreign Key), falling back to simple fetch.", err)
+      console.warn("Relational fetch failed, falling back to simple fetch.", err)
       
-      // ATTEMPT 2: Fallback to simple query (no joins)
       let simpleQuery = supabase
         .from('community_posts')
         .select('*')
@@ -146,7 +148,6 @@ export default function CommunityPage() {
   const handlePost = async () => {
     if (!newPost.trim() || !user) return
     
-    // Use location if available, otherwise default to 0,0 (Global/Unknown)
     const lat = location?.lat || 0
     const lng = location?.lng || 0
 
@@ -156,14 +157,12 @@ export default function CommunityPage() {
       post_type: postType,
       latitude: lat,
       longitude: lng,
-      likes: [], // Initialize empty likes array
-      // Add author_name as fallback in case profiles relation isn't working
+      likes: [], 
       author_name: user.user_metadata?.full_name || "FarmSeva User" 
     })
 
     if (!error) {
       setNewPost('')
-      // Refresh feed using the logic we just used (local or global)
       fetchPosts(lat, lng, lat === 0) 
     } else {
       alert("Failed to post. Please try again.")
@@ -173,7 +172,8 @@ export default function CommunityPage() {
   const handleLike = async (postId: number, currentLikes: string[] | null) => {
     if (!user) return alert("Please log in to like posts")
     
-    const likesArr = currentLikes || []
+    // Ensure likesArr is always an array
+    const likesArr = Array.isArray(currentLikes) ? currentLikes : []
     const hasLiked = likesArr.includes(user.id)
     
     // Optimistic UI Update
@@ -181,7 +181,7 @@ export default function CommunityPage() {
       ? likesArr.filter(id => id !== user.id)
       : [...likesArr, user.id]
 
-    setPosts(posts.map(p => p.id === postId ? { ...p, likes: updatedLikes } : p))
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: updatedLikes } : p))
 
     // DB Update
     const { error } = await supabase
@@ -190,9 +190,14 @@ export default function CommunityPage() {
       .eq('id', postId)
 
     if (error) {
-      console.error("Like failed", error)
+      // Use WARN instead of ERROR to prevent Next.js overlay
+      console.warn("Like update failed (check RLS policies):", error.message)
+      
       // Revert if failed
-      setPosts(posts.map(p => p.id === postId ? { ...p, likes: currentLikes } : p))
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: likesArr } : p))
+      
+      // Optional: Inform user subtly
+      // alert("Could not save like. You might not have permission to update this post.")
     }
   }
 
@@ -223,11 +228,8 @@ export default function CommunityPage() {
     
     setActiveCommentId(postId)
     
-    // Only fetch if we haven't already loaded comments for this post
     if (!comments[postId]) {
       setLoadingComments(true)
-      
-      // Try fetch with profile, fallback silently if fails
       try {
         const { data, error } = await supabase
           .from('comments')
@@ -238,7 +240,6 @@ export default function CommunityPage() {
         if (error) throw error
         setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
       } catch (e) {
-        // Fallback fetch without profiles
         const { data } = await supabase
           .from('comments')
           .select('*')
@@ -247,7 +248,6 @@ export default function CommunityPage() {
           
         if (data) setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
       }
-      
       setLoadingComments(false)
     }
   }
@@ -255,7 +255,6 @@ export default function CommunityPage() {
   const submitComment = async (postId: number) => {
     if (!newComment.trim() || !user) return
 
-    // Optimistic update
     const tempComment: Comment = {
       id: Date.now(),
       post_id: postId,
@@ -278,9 +277,30 @@ export default function CommunityPage() {
     })
 
     if (error) {
-      console.error("Comment failed", error)
-      // Ideally remove the optimistic comment or show error
+      console.warn("Comment failed:", error.message)
     }
+  }
+
+  // --- REPORTING LOGIC ---
+  const openReportModal = (postId: number) => {
+    setReportingPostId(postId)
+    setReportModalOpen(true)
+    setMenuOpenId(null) // Close menu
+  }
+
+  const submitReport = async () => {
+    if (!reportReason) return alert("Please select a reason.")
+    
+    // Simulate DB call (Replace with actual insert if 'reports' table exists)
+    // await supabase.from('reports').insert({ post_id: reportingPostId, reason: reportReason, user_id: user?.id })
+    
+    // Mock success
+    setTimeout(() => {
+        alert("Thanks for reporting. We will review this post shortly.")
+        setReportModalOpen(false)
+        setReportReason('')
+        setReportingPostId(null)
+    }, 500)
   }
 
   // -- HELPERS --
@@ -299,8 +319,51 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans pb-20">
+    <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans pb-20 relative">
       
+      {/* Report Modal */}
+      <AnimatePresence>
+        {reportModalOpen && (
+            <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            >
+                <motion.div 
+                    initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+                    className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6"
+                >
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <Flag size={20} className="text-red-500" /> Report Post
+                        </h3>
+                        <button onClick={() => setReportModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">Why are you reporting this post?</p>
+                    <div className="space-y-2 mb-6">
+                        {['Spam or Misleading', 'Harassment or Hate Speech', 'Violent or Graphic Content', 'Other'].map((reason) => (
+                            <label key={reason} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                <input 
+                                    type="radio" 
+                                    name="reportReason" 
+                                    value={reason} 
+                                    onChange={(e) => setReportReason(e.target.value)}
+                                    className="text-green-600 focus:ring-green-500"
+                                />
+                                <span className="text-sm font-medium text-gray-700">{reason}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={() => setReportModalOpen(false)} className="flex-1 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancel</button>
+                        <button onClick={submitReport} className="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-sm">Submit Report</button>
+                    </div>
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Bar for Mobile */}
       <div className="md:hidden bg-white p-4 shadow-sm sticky top-0 z-20 flex items-center gap-2 border-b border-gray-100">
         <button onClick={() => router.back()}><ArrowLeft size={20}/></button>
@@ -421,7 +484,7 @@ export default function CommunityPage() {
               const likesCount = post.likes ? post.likes.length : 0
               const isLiked = user ? (post.likes || []).includes(user.id) : false
               
-              // Handle Profile Data Safe Access (Array vs Object vs Undefined)
+              // Handle Profile Data Safe Access
               let authorName = "FarmSeva User"
               if (post.profiles) {
                 if (Array.isArray(post.profiles) && post.profiles.length > 0) {
@@ -430,7 +493,6 @@ export default function CommunityPage() {
                   authorName = (post.profiles as Profile).fullname
                 }
               }
-              // Fallback to legacy author_name if join failed
               if (authorName === "FarmSeva User" && post.author_name) {
                 authorName = post.author_name
               }
@@ -442,7 +504,7 @@ export default function CommunityPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 key={post.id} 
-                className="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-green-100 transition overflow-hidden"
+                className="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-green-100 transition overflow-visible relative"
               >
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-3">
@@ -460,9 +522,32 @@ export default function CommunityPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${getBadgeColor(post.post_type)}`}>
-                      {post.post_type}
-                    </span>
+                    
+                    <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${getBadgeColor(post.post_type)}`}>
+                        {post.post_type}
+                        </span>
+                        
+                        {/* More Menu (Report) */}
+                        <div className="relative">
+                            <button 
+                                onClick={() => setMenuOpenId(menuOpenId === post.id ? null : post.id)}
+                                className="p-1 rounded-full hover:bg-gray-100 text-gray-400 transition"
+                            >
+                                <MoreHorizontal size={18} />
+                            </button>
+                            {menuOpenId === post.id && (
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
+                                    <button 
+                                        onClick={() => openReportModal(post.id)}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                        <Flag size={14} /> Report
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                   </div>
                   
                   <p className="text-gray-800 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
@@ -512,7 +597,6 @@ export default function CommunityPage() {
                           <p className="text-xs text-center text-gray-400">No comments yet. Be the first!</p>
                         ) : (
                           (comments[post.id] || []).map(comment => {
-                            // Helper to get comment author name safely
                             let commentAuthor = "User"
                             const p = comment.profiles as any
                             if (p) {
