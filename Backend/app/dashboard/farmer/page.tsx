@@ -84,11 +84,10 @@ export default function FarmerDashboardPage() {
   const { user, loading } = useSupabaseUser();
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "analytics" | "risk" | "weather" | "alerts" | "schemes"
+    "overview" | "analytics" | "risk" | "weather" | "alerts" | "schemes" | "community"
   >("overview");
 
   // --- State: Risk & Profile ---
-  // We now store the full history and the currently selected assessment for viewing
   const [riskHistory, setRiskHistory] = useState<RiskAssessment[]>([]);
   const [selectedRisk, setSelectedRisk] = useState<RiskAssessment | null>(null);
   const [farmProfile, setFarmProfile] = useState<FarmProfile | null>(null);
@@ -264,7 +263,7 @@ export default function FarmerDashboardPage() {
   // --- Effects: Dashboard General ---
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab && ["overview", "analytics", "risk", "weather", "alerts", "schemes"].includes(tab)) {
+    if (tab && ["overview", "analytics", "risk", "weather", "alerts", "schemes", "community"].includes(tab)) {
       setActiveTab(tab as any);
     }
   }, [searchParams]);
@@ -273,7 +272,6 @@ export default function FarmerDashboardPage() {
     if (!user) return;
     async function loadData() {
       setLoadingRisk(true);
-      // FETCH ALL RISK HISTORY, not just limit(1)
       const { data: riskData } = await supabase
         .from("risk_assessments")
         .select("*")
@@ -282,7 +280,7 @@ export default function FarmerDashboardPage() {
 
       if (riskData && riskData.length > 0) {
         setRiskHistory(riskData as RiskAssessment[]);
-        setSelectedRisk(riskData[0] as RiskAssessment); // Default to viewing the latest
+        setSelectedRisk(riskData[0] as RiskAssessment);
       } else {
         setRiskHistory([]);
         setSelectedRisk(null);
@@ -337,7 +335,6 @@ export default function FarmerDashboardPage() {
     return { text, bgColor, titleColor };
   };
 
-  // --- Prepare History Chart Data ---
   const historyChartData = useMemo(() => {
     return riskHistory.map((entry) => {
       const score = calculateOverallRisk(entry);
@@ -347,7 +344,7 @@ export default function FarmerDashboardPage() {
         score: score,
         id: entry.id
       };
-    }).reverse(); // Recharts needs Oldest -> Newest for left-to-right graph
+    }).reverse();
   }, [riskHistory]);
 
   async function handleVetRequest(e: React.FormEvent) {
@@ -410,6 +407,7 @@ export default function FarmerDashboardPage() {
                 { key: "weather", label: "Weather", icon: "mdi:weather-cloudy" },
                 { key: "alerts", label: "Security", icon: "mdi:shield-lock" },
                 { key: "schemes", label: "Schemes", icon: "mingcute:government-line" },
+                { key: "community", label: "Community", icon: "mdi:account-group" },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -453,16 +451,26 @@ export default function FarmerDashboardPage() {
                   <div className="text-2xl font-semibold text-neutral-800 mb-1">₹62,400</div>
                   <div className="text-sm text-neutral-600">Pig &amp; Poultry Sales</div>
                 </Card>
+                
+                {/* Community Access Card */}
                 <Card>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <Icon icon="mdi:thermometer" className="w-6 h-6 text-blue-600" />
+                    <div 
+                        className="cursor-pointer group h-full flex flex-col justify-center"
+                        onClick={() => router.push('/community')} 
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition">
+                            <Icon icon="mdi:forum" className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <span className="text-sm text-purple-600 font-medium flex items-center gap-1">
+                            New Posts <Icon icon="mdi:arrow-right" className="w-3 h-3" />
+                        </span>
+                        </div>
+                        <div className="text-2xl font-semibold text-neutral-800 mb-1">Community</div>
+                        <div className="text-sm text-neutral-600">Ask Vets & Locals</div>
                     </div>
-                    <span className="text-sm text-blue-600 font-medium">Alerts</span>
-                  </div>
-                  <div className="text-2xl font-semibold text-neutral-800 mb-1">2</div>
-                  <div className="text-sm text-neutral-600">Weather &amp; Security</div>
                 </Card>
+
                 <Card>
                   <div className="flex items-center justify-between mb-4">
                     <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
@@ -589,8 +597,6 @@ export default function FarmerDashboardPage() {
           {/* ========== TAB: RISK (UPDATED WITH HISTORY) ========== */}
           {activeTab === "risk" && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="space-y-8">
-              
-              {/* Header Card */}
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -626,7 +632,7 @@ export default function FarmerDashboardPage() {
                  </Card>
               ) : (
                 <>
-                  {/* 1. RISK HISTORY TREND CHART */}
+                  {/* RISK HISTORY TREND CHART */}
                   <Card>
                     <div className="mb-6 flex justify-between items-end">
                       <div>
@@ -680,7 +686,7 @@ export default function FarmerDashboardPage() {
                     </div>
                   </Card>
 
-                  {/* 2. SPLIT VIEW: HISTORY LIST + DETAILED VIEW */}
+                  {/* SPLIT VIEW: HISTORY LIST + DETAILED VIEW */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     
                     {/* LEFT COLUMN: History List */}
@@ -1037,6 +1043,34 @@ export default function FarmerDashboardPage() {
                   <p className="text-gray-500 text-lg">Try adjusting your search or filter criteria</p>
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* ========== TAB: COMMUNITY ========== */}
+          {activeTab === "community" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm"
+            >
+              <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-6">
+                <Icon icon="mdi:account-group" className="w-10 h-10 text-purple-600" />
+              </div>
+              <h2 className="text-2xl font-semibold text-neutral-800 mb-2">
+                Join the Farmer Community
+              </h2>
+              <p className="text-neutral-600 text-center max-w-md mb-8">
+                Connect with farmers near you, get real-time disease alerts, and ask questions to verified veterinary experts.
+              </p>
+              <button
+                // Fix: Navigate to route instead of setting tab
+                onClick={() => router.push('/dashboard/farmer/community')} 
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors flex items-center gap-2 shadow-md"
+              >
+                <Icon icon="mdi:open-in-new" className="w-5 h-5"/>
+                Open Community Feed
+              </button>
             </motion.div>
           )}
         </div>

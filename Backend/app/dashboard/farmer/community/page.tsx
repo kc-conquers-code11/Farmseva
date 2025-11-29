@@ -1,23 +1,34 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-// FIXED: Removed the failing auth-helpers import
-// import { createClientComponentClient } from '@supabase/auth-helpers-nextjs' 
-// ADDED: Use your existing client that works in the dashboard
 import { supabase } from '@/lib/supabaseClient'
-
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  MapPin, Image as ImageIcon, Send, Search, 
-  MessageSquare, Heart, Share2, MoreHorizontal, 
+  MapPin, Send, Search, 
+  MessageSquare, Heart, Share2, 
   Users, Stethoscope, TrendingUp, AlertTriangle,
-  ArrowLeft
+  ArrowLeft, MoreHorizontal, X
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import { useSupabaseUser } from '@/hooks/useSupabaseUser'
 
 // --- Types ---
 type PostType = 'update' | 'question' | 'alert'
+
+interface Profile {
+  fullname: string
+  avatar_url?: string
+}
+
+interface Comment {
+  id: number
+  post_id: number
+  user_id: string
+  content: string
+  created_at: string
+  profiles?: Profile // Joined profile data
+}
 
 interface Post {
   id: number
@@ -26,15 +37,16 @@ interface Post {
   post_type: PostType
   latitude: number
   longitude: number
-  author_name: string
   created_at: string
+  likes: string[] | null // Array of user_ids who liked
+  profiles?: Profile | Profile[] // Joined profile data (can be array or obj depending on Supabase version)
+  // Legacy field, fallback
+  author_name?: string 
 }
 
 export default function CommunityPage() {
-  // REMOVED: const supabase = createClientComponentClient() 
-  // We now use the imported 'supabase' object directly.
-  
   const router = useRouter()
+  const { user } = useSupabaseUser()
   
   // -- STATE --
   const [posts, setPosts] = useState<Post[]>([])
@@ -43,6 +55,12 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [activeTab, setActiveTab] = useState('feed') 
+  
+  // Comment State
+  const [activeCommentId, setActiveCommentId] = useState<number | null>(null)
+  const [newComment, setNewComment] = useState('')
+  const [comments, setComments] = useState<Record<number, Comment[]>>({})
+  const [loadingComments, setLoadingComments] = useState(false)
 
   // -- 1. GET USER LOCATION --
   useEffect(() => {
@@ -54,79 +72,224 @@ export default function CommunityPage() {
           fetchPosts(loc.lat, loc.lng)
         },
         (err) => {
-          console.error("Location error:", err)
-          alert("Please enable location access to see posts from nearby farmers.")
-          setLoading(false)
-        }
+          console.error("Location error or denied:", err)
+          // FIX: Fetch global posts if location access is denied
+          fetchPosts(0, 0, true) 
+        },
+        { timeout: 10000 } // Timeout after 10s to prevent hanging
       )
     } else {
-      alert("Geolocation is not supported by this browser.")
-      setLoading(false)
+      // FIX: Fetch global posts if geolocation is not supported
+      fetchPosts(0, 0, true)
     }
   }, [])
 
-  // -- 2. FETCH POSTS --
-  const fetchPosts = async (lat: number, lng: number) => {
+  // -- 2. FETCH POSTS (With Fallback) --
+  const fetchPosts = async (lat: number, lng: number, global = false) => {
     const range = 0.5 
     
-    const { data, error } = await supabase
-      .from('community_posts')
-      .select('*')
-      .gte('latitude', lat - range)
-      .lte('latitude', lat + range)
-      .gte('longitude', lng - range)
-      .lte('longitude', lng + range)
-      .order('created_at', { ascending: false })
+    try {
+      // ATTEMPT 1: Try fetching with relational data (profiles)
+      let query = supabase
+        .from('community_posts')
+        .select(`
+          *,
+          profiles (fullname, avatar_url)
+        `)
+        .order('created_at', { ascending: false })
 
-    if (error) console.error("Error fetching posts:", error)
-    if (data) setPosts(data as Post[])
-    setLoading(false)
+      if (!global && lat !== 0) {
+        query = query
+          .gte('latitude', lat - range)
+          .lte('latitude', lat + range)
+          .gte('longitude', lng - range)
+          .lte('longitude', lng + range)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error // Throw to catch block
+
+      setPosts(data as Post[])
+      
+    } catch (err) {
+      console.warn("Relational fetch failed (likely missing Foreign Key), falling back to simple fetch.", err)
+      
+      // ATTEMPT 2: Fallback to simple query (no joins)
+      let simpleQuery = supabase
+        .from('community_posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (!global && lat !== 0) {
+        simpleQuery = simpleQuery
+          .gte('latitude', lat - range)
+          .lte('latitude', lat + range)
+          .gte('longitude', lng - range)
+          .lte('longitude', lng + range)
+      }
+
+      const { data: simpleData, error: simpleError } = await simpleQuery
+      
+      if (simpleError) {
+        console.error("Critical: Could not fetch posts.", simpleError)
+      } else {
+        setPosts(simpleData as Post[])
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // -- 3. HANDLE POST SUBMISSION --
+  // -- 3. HANDLE ACTIONS --
+
   const handlePost = async () => {
-    if (!newPost.trim() || !location) return
+    if (!newPost.trim() || !user) return
     
-    // A. Get Logged In User
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return alert("Please log in first")
+    // Use location if available, otherwise default to 0,0 (Global/Unknown)
+    const lat = location?.lat || 0
+    const lng = location?.lng || 0
 
-    // B. Get Farmer Name from 'profiles' table
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('fullname') 
-      .eq('id', user.id)
-      .single()
-
-    const authorName = profile?.fullname || "FarmSeva User"
-
-    // C. Insert Post
     const { error } = await supabase.from('community_posts').insert({
       user_id: user.id,
       content: newPost,
       post_type: postType,
-      latitude: location.lat,
-      longitude: location.lng,
-      author_name: authorName
+      latitude: lat,
+      longitude: lng,
+      likes: [], // Initialize empty likes array
+      // Add author_name as fallback in case profiles relation isn't working
+      author_name: user.user_metadata?.full_name || "FarmSeva User" 
     })
 
     if (!error) {
       setNewPost('')
-      fetchPosts(location.lat, location.lng) // Refresh feed
+      // Refresh feed using the logic we just used (local or global)
+      fetchPosts(lat, lng, lat === 0) 
     } else {
-      console.error(error)
-      alert("Failed to post update. Please try again.")
+      alert("Failed to post. Please try again.")
     }
   }
 
-  // Filter logic for tabs
+  const handleLike = async (postId: number, currentLikes: string[] | null) => {
+    if (!user) return alert("Please log in to like posts")
+    
+    const likesArr = currentLikes || []
+    const hasLiked = likesArr.includes(user.id)
+    
+    // Optimistic UI Update
+    const updatedLikes = hasLiked 
+      ? likesArr.filter(id => id !== user.id)
+      : [...likesArr, user.id]
+
+    setPosts(posts.map(p => p.id === postId ? { ...p, likes: updatedLikes } : p))
+
+    // DB Update
+    const { error } = await supabase
+      .from('community_posts')
+      .update({ likes: updatedLikes })
+      .eq('id', postId)
+
+    if (error) {
+      console.error("Like failed", error)
+      // Revert if failed
+      setPosts(posts.map(p => p.id === postId ? { ...p, likes: currentLikes } : p))
+    }
+  }
+
+  const handleShare = async (post: Post) => {
+    const shareData = {
+      title: 'FarmSeva Community',
+      text: post.content,
+      url: window.location.href
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+      } catch (err) {
+        console.log('Share canceled')
+      }
+    } else {
+      navigator.clipboard.writeText(`${post.content} - Shared from FarmSeva`)
+      alert('Post content copied to clipboard!')
+    }
+  }
+
+  const toggleComments = async (postId: number) => {
+    if (activeCommentId === postId) {
+      setActiveCommentId(null)
+      return
+    }
+    
+    setActiveCommentId(postId)
+    
+    // Only fetch if we haven't already loaded comments for this post
+    if (!comments[postId]) {
+      setLoadingComments(true)
+      
+      // Try fetch with profile, fallback silently if fails
+      try {
+        const { data, error } = await supabase
+          .from('comments')
+          .select(`*, profiles (fullname)`)
+          .eq('post_id', postId)
+          .order('created_at', { ascending: true })
+          
+        if (error) throw error
+        setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
+      } catch (e) {
+        // Fallback fetch without profiles
+        const { data } = await supabase
+          .from('comments')
+          .select('*')
+          .eq('post_id', postId)
+          .order('created_at', { ascending: true })
+          
+        if (data) setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
+      }
+      
+      setLoadingComments(false)
+    }
+  }
+
+  const submitComment = async (postId: number) => {
+    if (!newComment.trim() || !user) return
+
+    // Optimistic update
+    const tempComment: Comment = {
+      id: Date.now(),
+      post_id: postId,
+      user_id: user.id,
+      content: newComment,
+      created_at: new Date().toISOString(),
+      profiles: { fullname: user.user_metadata?.full_name || 'Me' }
+    }
+    
+    setComments(prev => ({
+      ...prev,
+      [postId]: [...(prev[postId] || []), tempComment]
+    }))
+    setNewComment('')
+
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      user_id: user.id,
+      content: tempComment.content
+    })
+
+    if (error) {
+      console.error("Comment failed", error)
+      // Ideally remove the optimistic comment or show error
+    }
+  }
+
+  // -- HELPERS --
   const displayPosts = posts.filter(p => {
     if (activeTab === 'questions') return p.post_type === 'question'
     if (activeTab === 'alerts') return p.post_type === 'alert'
     return true 
   })
 
-  // Helper for Post Badge Colors
   const getBadgeColor = (type: string) => {
     switch(type) {
         case 'alert': return 'bg-red-100 text-red-700 border-red-200';
@@ -136,9 +299,10 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans pb-20">
+      
       {/* Top Bar for Mobile */}
-      <div className="md:hidden bg-white p-4 shadow-sm sticky top-0 z-10 flex items-center gap-2">
+      <div className="md:hidden bg-white p-4 shadow-sm sticky top-0 z-20 flex items-center gap-2 border-b border-gray-100">
         <button onClick={() => router.back()}><ArrowLeft size={20}/></button>
         <h1 className="font-semibold text-lg">Community Feed</h1>
       </div>
@@ -147,7 +311,7 @@ export default function CommunityPage() {
 
         {/* --- LEFT SIDEBAR (Desktop Only) --- */}
         <div className="hidden md:block col-span-3 space-y-6">
-           <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 hover:text-green-600 mb-4 transition">
+           <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 hover:text-green-600 mb-4 transition font-medium">
              <ArrowLeft size={18} /> Back to Dashboard
            </button>
 
@@ -176,14 +340,15 @@ export default function CommunityPage() {
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-sm font-semibold text-gray-500 mb-3">Create a new post</h3>
             <div className="flex gap-3 mb-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold shrink-0">
-                You
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-700 font-bold shrink-0 shadow-sm border border-green-200">
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
               </div>
               <textarea
                 value={newPost}
                 onChange={(e) => setNewPost(e.target.value)}
-                placeholder="Share an update, ask a question, or report an issue..."
-                className="w-full bg-gray-50 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-green-500 resize-none border border-gray-200"
+                placeholder={user ? "Share an update, ask a question..." : "Please log in to post"}
+                disabled={!user}
+                className="w-full bg-gray-50 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 resize-none border border-gray-200 transition-all"
                 rows={3}
               />
             </div>
@@ -192,19 +357,19 @@ export default function CommunityPage() {
             <div className="flex flex-wrap gap-2 mb-4">
                 <button 
                     onClick={() => setPostType('update')}
-                    className={`px-3 py-1 text-xs font-medium rounded-full border transition ${postType === 'update' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'update' ? 'bg-green-600 text-white border-green-600 shadow-md shadow-green-200' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'}`}
                 >
                     📢 Update
                 </button>
                 <button 
                     onClick={() => setPostType('question')}
-                    className={`px-3 py-1 text-xs font-medium rounded-full border transition ${postType === 'question' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'question' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
                 >
                     ❓ Question
                 </button>
                 <button 
                     onClick={() => setPostType('alert')}
-                    className={`px-3 py-1 text-xs font-medium rounded-full border transition ${postType === 'alert' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-300'}`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'alert' ? 'bg-red-600 text-white border-red-600 shadow-md shadow-red-200' : 'bg-white text-gray-600 border-gray-200 hover:border-red-300'}`}
                 >
                     🚨 Alert
                 </button>
@@ -212,13 +377,13 @@ export default function CommunityPage() {
 
             <div className="flex justify-between items-center border-t border-gray-100 pt-3">
               <div className="text-xs text-gray-400 flex items-center gap-1">
-                 <MapPin size={14} /> 
-                 {location ? "Posting from your location" : "Locating..."}
+                 <MapPin size={14} className={location ? "text-green-500" : "text-gray-400"} /> 
+                 {location ? "Posting from current location" : "Location required (or post globally)"}
               </div>
               <button 
                 onClick={handlePost}
-                disabled={!newPost || !location}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                disabled={!newPost || !user}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm hover:shadow-md"
               >
                 Post <Send size={16} />
               </button>
@@ -226,14 +391,14 @@ export default function CommunityPage() {
           </div>
 
           {/* Mobile Tabs */}
-          <div className="md:hidden flex bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
+          <div className="md:hidden flex bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 sticky top-16 z-10">
             <button onClick={() => setActiveTab('feed')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'feed' ? 'bg-green-50 text-green-700 border-b-2 border-green-600' : 'text-gray-500'}`}>All</button>
             <button onClick={() => setActiveTab('questions')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'questions' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-gray-500'}`}>Questions</button>
             <button onClick={() => setActiveTab('alerts')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'alerts' ? 'bg-red-50 text-red-700 border-b-2 border-red-600' : 'text-gray-500'}`}>Alerts</button>
           </div>
 
           {/* Feed */}
-          <div className="space-y-4 pb-20 md:pb-0">
+          <div className="space-y-4">
             {loading && (
                 <div className="text-center py-10">
                     <div className="animate-spin w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full mx-auto mb-2"></div>
@@ -251,41 +416,150 @@ export default function CommunityPage() {
                  </div>
             )}
             
-            {displayPosts.map((post) => (
+            <AnimatePresence>
+            {displayPosts.map((post) => {
+              const likesCount = post.likes ? post.likes.length : 0
+              const isLiked = user ? (post.likes || []).includes(user.id) : false
+              
+              // Handle Profile Data Safe Access (Array vs Object vs Undefined)
+              let authorName = "FarmSeva User"
+              if (post.profiles) {
+                if (Array.isArray(post.profiles) && post.profiles.length > 0) {
+                  authorName = post.profiles[0].fullname
+                } else if (!Array.isArray(post.profiles) && (post.profiles as Profile).fullname) {
+                  authorName = (post.profiles as Profile).fullname
+                }
+              }
+              // Fallback to legacy author_name if join failed
+              if (authorName === "FarmSeva User" && post.author_name) {
+                authorName = post.author_name
+              }
+
+              const avatarLetter = authorName.charAt(0).toUpperCase()
+
+              return (
               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 key={post.id} 
-                className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-green-100 transition"
+                className="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-green-100 transition overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center font-bold text-green-700 text-sm border border-green-200 shadow-sm">
-                      {post.author_name?.[0]?.toUpperCase()}
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center font-bold text-green-700 text-sm border border-green-200 shadow-sm">
+                        {avatarLetter}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                          {authorName}
+                          {post.profiles && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-normal">Verified</span>}
+                        </h4>
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 text-sm">{post.author_name}</h4>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${getBadgeColor(post.post_type)}`}>
+                      {post.post_type}
+                    </span>
                   </div>
-                  <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded border ${getBadgeColor(post.post_type)}`}>
-                    {post.post_type}
-                  </span>
-                </div>
-                
-                <p className="text-gray-800 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
-                    {post.content}
-                </p>
+                  
+                  <p className="text-gray-800 text-sm leading-relaxed mb-4 whitespace-pre-wrap">
+                      {post.content}
+                  </p>
 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-50 text-gray-400 text-sm">
-                   <button className="flex items-center gap-2 hover:text-red-500 transition hover:bg-red-50 px-2 py-1 rounded"><Heart size={16}/> <span>Like</span></button>
-                   <button className="flex items-center gap-2 hover:text-blue-500 transition hover:bg-blue-50 px-2 py-1 rounded"><MessageSquare size={16}/> <span>Comment</span></button>
-                   <button className="flex items-center gap-2 hover:text-green-500 transition hover:bg-green-50 px-2 py-1 rounded"><Share2 size={16}/> <span>Share</span></button>
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-50 text-gray-500 text-sm">
+                      <button 
+                        onClick={() => handleLike(post.id, post.likes)}
+                        className={`flex items-center gap-2 transition px-2 py-1 rounded hover:bg-gray-50 ${isLiked ? 'text-red-500 font-medium' : 'hover:text-red-500'}`}
+                      >
+                        <Heart size={18} fill={isLiked ? "currentColor" : "none"} /> 
+                        <span>{likesCount > 0 ? likesCount : 'Like'}</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => toggleComments(post.id)}
+                        className={`flex items-center gap-2 transition px-2 py-1 rounded hover:bg-gray-50 ${activeCommentId === post.id ? 'text-blue-600 bg-blue-50' : 'hover:text-blue-500'}`}
+                      >
+                        <MessageSquare size={18}/> 
+                        <span>Comment</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleShare(post)}
+                        className="flex items-center gap-2 hover:text-green-600 transition hover:bg-green-50 px-2 py-1 rounded"
+                      >
+                        <Share2 size={18}/> 
+                        <span className="hidden sm:inline">Share</span>
+                      </button>
+                  </div>
                 </div>
+
+                {/* Comment Section */}
+                <AnimatePresence>
+                  {activeCommentId === post.id && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="bg-gray-50 border-t border-gray-100 p-4"
+                    >
+                      <div className="space-y-4 mb-4">
+                        {loadingComments ? (
+                          <p className="text-xs text-center text-gray-400">Loading comments...</p>
+                        ) : (comments[post.id] || []).length === 0 ? (
+                          <p className="text-xs text-center text-gray-400">No comments yet. Be the first!</p>
+                        ) : (
+                          (comments[post.id] || []).map(comment => {
+                            // Helper to get comment author name safely
+                            let commentAuthor = "User"
+                            const p = comment.profiles as any
+                            if (p) {
+                                if (Array.isArray(p)) commentAuthor = p[0]?.fullname || "User"
+                                else commentAuthor = p.fullname || "User"
+                            }
+
+                            return (
+                            <div key={comment.id} className="flex gap-3 text-sm">
+                              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-xs font-bold text-gray-500 border border-gray-200 shrink-0">
+                                {commentAuthor.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="bg-white p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl shadow-sm border border-gray-200 flex-1">
+                                <p className="text-xs font-bold text-gray-900 mb-1">
+                                  {commentAuthor}
+                                </p>
+                                <p className="text-gray-700">{comment.content}</p>
+                              </div>
+                            </div>
+                          )})
+                        )}
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Write a comment..." 
+                          className="flex-1 text-sm p-2 rounded-lg border border-gray-300 focus:outline-none focus:border-green-500"
+                          onKeyDown={(e) => e.key === 'Enter' && submitComment(post.id)}
+                        />
+                        <button 
+                          onClick={() => submitComment(post.id)}
+                          disabled={!newComment.trim()}
+                          className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          <Send size={16} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
               </motion.div>
-            ))}
+            )})}
+            </AnimatePresence>
           </div>
         </div>
 
