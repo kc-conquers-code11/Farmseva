@@ -40,7 +40,6 @@ interface Post {
   created_at: string
   likes: string[] | null // Array of user_ids who liked
   profiles?: Profile | Profile[] // Joined profile data
-  // Legacy field, fallback
   author_name?: string 
 }
 
@@ -88,7 +87,7 @@ export default function CommunityPage() {
     }
   }, [])
 
-  // -- 2. FETCH POSTS (With Fallback) --
+  // -- 2. FETCH POSTS --
   const fetchPosts = async (lat: number, lng: number, global = false) => {
     const range = 0.5 
     
@@ -172,32 +171,23 @@ export default function CommunityPage() {
   const handleLike = async (postId: number, currentLikes: string[] | null) => {
     if (!user) return alert("Please log in to like posts")
     
-    // Ensure likesArr is always an array
     const likesArr = Array.isArray(currentLikes) ? currentLikes : []
     const hasLiked = likesArr.includes(user.id)
     
-    // Optimistic UI Update
     const updatedLikes = hasLiked 
       ? likesArr.filter(id => id !== user.id)
       : [...likesArr, user.id]
 
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: updatedLikes } : p))
 
-    // DB Update
     const { error } = await supabase
       .from('community_posts')
       .update({ likes: updatedLikes })
       .eq('id', postId)
 
     if (error) {
-      // Use WARN instead of ERROR to prevent Next.js overlay
-      console.warn("Like update failed (check RLS policies):", error.message)
-      
-      // Revert if failed
+      console.warn("Like update failed:", error.message)
       setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: likesArr } : p))
-      
-      // Optional: Inform user subtly
-      // alert("Could not save like. You might not have permission to update this post.")
     }
   }
 
@@ -240,6 +230,7 @@ export default function CommunityPage() {
         if (error) throw error
         setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
       } catch (e) {
+        // Fallback if profiles join fails
         const { data } = await supabase
           .from('comments')
           .select('*')
@@ -255,6 +246,7 @@ export default function CommunityPage() {
   const submitComment = async (postId: number) => {
     if (!newComment.trim() || !user) return
 
+    // Optimistic update (UI shows it immediately)
     const tempComment: Comment = {
       id: Date.now(),
       post_id: postId,
@@ -268,16 +260,24 @@ export default function CommunityPage() {
       ...prev,
       [postId]: [...(prev[postId] || []), tempComment]
     }))
+    const commentToSave = newComment // store value before clearing
     setNewComment('')
 
+    // Database Insert
     const { error } = await supabase.from('comments').insert({
       post_id: postId,
       user_id: user.id,
-      content: tempComment.content
+      content: commentToSave
     })
 
     if (error) {
-      console.warn("Comment failed:", error.message)
+      console.error("Comment failed to save:", error.message)
+      alert("Failed to save comment. Check your connection or table permissions.")
+      // Rollback optimistic update
+      setComments(prev => ({
+        ...prev,
+        [postId]: prev[postId].filter(c => c.id !== tempComment.id)
+      }))
     }
   }
 
@@ -285,16 +285,12 @@ export default function CommunityPage() {
   const openReportModal = (postId: number) => {
     setReportingPostId(postId)
     setReportModalOpen(true)
-    setMenuOpenId(null) // Close menu
+    setMenuOpenId(null)
   }
 
   const submitReport = async () => {
     if (!reportReason) return alert("Please select a reason.")
     
-    // Simulate DB call (Replace with actual insert if 'reports' table exists)
-    // await supabase.from('reports').insert({ post_id: reportingPostId, reason: reportReason, user_id: user?.id })
-    
-    // Mock success
     setTimeout(() => {
         alert("Thanks for reporting. We will review this post shortly.")
         setReportModalOpen(false)
