@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import Papa from "papaparse";
 import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
+import DiseaseAlertsDashboard from "./outbreaks/DiseaseAlertsDashboard.jsx";
 // Lucide icons
 import { 
   ChevronDown, 
@@ -84,8 +85,9 @@ export default function FarmerDashboardPage() {
   const { user, loading } = useSupabaseUser();
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "analytics" | "risk" | "weather" | "alerts" | "schemes" | "community"
-  >("overview");
+  "overview" | "analytics" | "risk" | "weather" | "outbreak" | "schemes" | "community"
+>("overview");
+
 
   // --- State: Risk & Profile ---
   const [riskHistory, setRiskHistory] = useState<RiskAssessment[]>([]);
@@ -112,6 +114,11 @@ export default function FarmerDashboardPage() {
   });
   const [vetSubmitting, setVetSubmitting] = useState(false);
   const [vetMsg, setVetMsg] = useState<string | null>(null);
+
+  // --- State: Weather ---
+  const [weather, setWeather] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<string>("Delhi");
+  const [weatherTips, setWeatherTips] = useState<{pig: string, poultry: string} | null>(null);
 
   // --- Data Constants ---
   const priceTrend = [
@@ -272,10 +279,11 @@ export default function FarmerDashboardPage() {
     if (!user) return;
     async function loadData() {
       setLoadingRisk(true);
+      // FIXED: Added ! assertion as we checked !user above
       const { data: riskData } = await supabase
         .from("risk_assessments")
         .select("*")
-        .eq("farmer_id", user.id)
+        .eq("farmer_id", user!.id)
         .order("created_at", { ascending: false });
 
       if (riskData && riskData.length > 0) {
@@ -289,16 +297,86 @@ export default function FarmerDashboardPage() {
       const { data: profileData } = await supabase
         .from("farm_profiles")
         .select("farm_name, species, state, herd_size")
-        .eq("farmer_id", user.id)
+        .eq("farmer_id", user!.id)
         .single();
 
       if (profileData) {
         setFarmProfile(profileData as FarmProfile);
       }
+
+      // Get Location & Weather
+      const { data: userData } = await supabase
+        .from("profiles")
+        .select("location")
+        .eq("id", user!.id)
+        .single();
+
+      if (userData?.location) {
+        setUserLocation(userData.location);
+        fetchWeather(userData.location);
+      } else {
+        fetchWeather("Delhi");
+      }
+
       setLoadingRisk(false);
     }
     loadData();
   }, [user]);
+
+
+  // Fetch Weather Function
+  const fetchWeather = async (city: string) => {
+    try {
+      const res = await fetch(`/api/weather?city=${city}`);
+      const data = await res.json();
+      
+      if (data.list) {
+        setWeather(data);
+        generateTips(data.list[0].main.temp, data.list[0].weather[0].main);
+      }
+    } catch (err) {
+      console.error("Weather fetch failed", err);
+    }
+  };
+
+const slimForecastData = weather
+  ? weather.list.slice(0, 5).map((item: any) => ({
+      time: new Date(item.dt * 1000).toLocaleTimeString([], {
+        hour: "2-digit",
+      }),
+      temp: Math.round(item.main.temp),
+    }))
+  : [];
+
+
+// Temperature → color
+const tempColor = (t: number) => {
+  if (t <= 15) return "#60a5fa";   // cold blue
+  if (t <= 25) return "#3b82f6";   // pleasant
+  if (t <= 32) return "#f59e0b";   // warm
+  return "#ef4444";               // hot
+};
+
+  // Generate Smart Tips based on Temp
+  const generateTips = (temp: number, condition: string) => {
+    let pigTip = "Conditions optimal. Maintain regular feeding.";
+    let poultryTip = "Conditions optimal. Ensure clean water.";
+
+    if (temp > 30) {
+        pigTip = "⚠️ Heat Stress Risk: Pigs cannot sweat. Increase ventilation.";
+        poultryTip = "⚠️ High Mortality Risk: Birds may pant. Add electrolytes.";
+    } else if (temp < 15) {
+        pigTip = "❄️ Cold Warning: Ensure piglets have heat lamps.";
+        poultryTip = "❄️ Hypothermia Risk: Use brooders for chicks.";
+    }
+    
+    if (condition.toLowerCase().includes('rain')) {
+        pigTip += " 🌧️ Ensure drainage is clear.";
+        poultryTip += " 🌧️ Check roof for leaks.";
+    }
+
+    setWeatherTips({ pig: pigTip, poultry: poultryTip });
+  };
 
   // --- Helpers ---
   const calculateOverallRisk = (risk: RiskAssessment) => {
@@ -324,13 +402,13 @@ export default function FarmerDashboardPage() {
     if (isCritical) {
       bgColor = "bg-red-50 border-red-100";
       titleColor = "text-red-800";
-      text = `Critical Alert: Your ${profile.species} farm in ${profile.state} is in a HIGH RISK category (${overallScore}%). With a herd size of ${profile.herd_size}, an outbreak could be devastating.`;
+      text = `Critical Alert: Your ${profile.species} farm in ${profile.state} is in a HIGH RISK category (${overallScore}%).`;
     } else if (isModerate) {
       bgColor = "bg-yellow-50 border-yellow-100";
       titleColor = "text-yellow-800";
-      text = `Caution: Your ${profile.species} farm shows MODERATE RISK (${overallScore}%). While some practices are good, gaps in biosecurity for your herd of ${profile.herd_size} need attention.`;
+      text = `Caution: Your ${profile.species} farm shows MODERATE RISK (${overallScore}%).`;
     } else {
-      text = `Excellent: Your ${profile.species} farm is currently in the SAFE ZONE (${overallScore}% risk). Your biosecurity measures for ${profile.herd_size} animals are effective.`;
+      text = `Excellent: Your ${profile.species} farm is currently in the SAFE ZONE (${overallScore}% risk).`;
     }
     return { text, bgColor, titleColor };
   };
@@ -353,7 +431,7 @@ export default function FarmerDashboardPage() {
     setVetSubmitting(true);
     setVetMsg(null);
     const { error } = await supabase.from("vet_requests").insert({
-      farmer_id: user.id,
+      farmer_id: user!.id, // Fixed: user!.id
       farm_name: vetForm.farm_name,
       species: vetForm.species,
       district: vetForm.district,
@@ -405,7 +483,7 @@ export default function FarmerDashboardPage() {
                 { key: "analytics", label: "Analytics", icon: "mdi:chart-line" },
                 { key: "risk", label: "Risk", icon: "mdi:alert-decagram" },
                 { key: "weather", label: "Weather", icon: "mdi:weather-cloudy" },
-                { key: "alerts", label: "Security", icon: "mdi:shield-lock" },
+                { key: "outbreak", label: "Security", icon: "mdi:shield-lock" },
                 { key: "schemes", label: "Schemes", icon: "mingcute:government-line" },
                 { key: "community", label: "Community", icon: "mdi:account-group" },
               ].map((tab) => (
@@ -441,22 +519,28 @@ export default function FarmerDashboardPage() {
                   </div>
                   <div className="text-sm text-neutral-600">Eligible Schemes</div>
                 </Card>
-                <Card>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                      <Icon icon="mdi:pig" className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <span className="text-sm text-yellow-600 font-medium">This Month</span>
-                  </div>
-                  <div className="text-2xl font-semibold text-neutral-800 mb-1">₹62,400</div>
-                  <div className="text-sm text-neutral-600">Pig &amp; Poultry Sales</div>
-                </Card>
                 
+                {/* Weather Quick View */}
+                <Card>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                            <Icon icon="mdi:weather-partly-cloudy" className="w-6 h-6 text-blue-600"/>
+                        </div>
+                        <span className="text-sm text-blue-600 font-medium">Now</span>
+                    </div>
+                    <div className="text-2xl font-semibold text-neutral-800">
+                        {weather ? `${Math.round(weather.list[0].main.temp)}°C` : "Loading..."}
+                    </div>
+                    <div className="text-sm text-neutral-600">
+                        {weather ? weather.list[0].weather[0].main : "Fetching..."}
+                    </div>
+                </Card>
+
                 {/* Community Access Card */}
                 <Card>
                     <div 
                         className="cursor-pointer group h-full flex flex-col justify-center"
-                        onClick={() => router.push('/community')} 
+                        onClick={() => router.push('/dashboard/farmer/community')} 
                     >
                         <div className="flex items-center justify-between mb-4">
                         <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition">
@@ -655,7 +739,7 @@ export default function FarmerDashboardPage() {
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                           <XAxis 
-                            dataKey="date" 
+                            dataKey="time"
                             axisLine={false} 
                             tickLine={false} 
                             tick={{ fill: '#9ca3af', fontSize: 12 }} 
@@ -749,8 +833,8 @@ export default function FarmerDashboardPage() {
                                   </p>
                                 </div>
                                 <div className="text-right">
-                                   <p className="text-xs text-neutral-500 uppercase font-semibold">Overall Risk</p>
-                                   <p className="text-3xl font-black text-neutral-800">{calculateOverallRisk(selectedRisk)}%</p>
+                                     <p className="text-xs text-neutral-500 uppercase font-semibold">Overall Risk</p>
+                                     <p className="text-3xl font-black text-neutral-800">{calculateOverallRisk(selectedRisk)}%</p>
                                 </div>
                               </div>
 
@@ -777,7 +861,7 @@ export default function FarmerDashboardPage() {
                                   </ResponsiveContainer>
                                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                      <Icon icon="mdi:shield-check" className={`w-8 h-8 ${
-                                        calculateOverallRisk(selectedRisk) > 60 ? 'text-red-500' : calculateOverallRisk(selectedRisk) > 30 ? 'text-yellow-500' : 'text-green-500'
+                                       calculateOverallRisk(selectedRisk) > 60 ? 'text-red-500' : calculateOverallRisk(selectedRisk) > 30 ? 'text-yellow-500' : 'text-green-500'
                                      }`} />
                                   </div>
                                 </div>
@@ -809,7 +893,7 @@ export default function FarmerDashboardPage() {
                                   generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).bgColor
                                 }`}>
                                    <p className={`font-bold mb-1 ${
-                                      generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor
+                                     generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor
                                    }`}>Analysis Summary</p>
                                    <p className="text-sm text-neutral-800">
                                       {generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).text}
@@ -844,113 +928,153 @@ export default function FarmerDashboardPage() {
             </motion.div>
           )}
 
-          {/* ========== TAB: ANALYTICS ========== */}
-          {activeTab === "analytics" && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <h3 className="font-semibold text-neutral-800 mb-4">Market Price Trend (₹/kg)</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={priceTrend}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="pig" stroke="#10b981" name="Pig Meat" />
-                        <Line type="monotone" dataKey="poultry" stroke="#f59e0b" name="Poultry" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                <Card>
-                  <h3 className="font-semibold text-neutral-800 mb-4">Revenue Distribution</h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={revenueDistribution}
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {revenueDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ========== TAB: WEATHER ========== */}
+          {/* ========== TAB: WEATHER (UPDATED) ========== */}
           {activeTab === "weather" && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <Card>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-neutral-800">Rainfall Forecast (mm)</h3>
-                  <Icon icon="mdi:weather-pouring" className="text-blue-500 w-6 h-6" />
+
+            
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="space-y-6">
+              
+              {/* Current Weather & Tips Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Main Weather Card */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                    <div>
+                        <h2 className="text-lg font-medium opacity-90 flex items-center gap-2"><Icon icon="mdi:map-marker"/> {userLocation}</h2>
+                        <div className="text-5xl font-bold mt-4 mb-2">
+                            {weather ? Math.round(weather.list[0].main.temp) : "--"}°C
+                        </div>
+                        <p className="text-lg capitalize opacity-90">
+                            {weather ? weather.list[0].weather[0].description : "Loading..."}
+                        </p>
+                    </div>
+                    <div className="flex justify-between mt-6 text-sm opacity-80 border-t border-white/20 pt-4">
+                        <div className="flex flex-col">
+                            <span>Humidity</span>
+                            <span className="font-bold">{weather ? weather.list[0].main.humidity : "--"}%</span>
+                        </div>
+                        <div className="flex flex-col text-right">
+                            <span>Wind</span>
+                            <span className="font-bold">{weather ? weather.list[0].wind.speed : "--"} m/s</span>
+                        </div>
+                    </div>
                 </div>
+
+                {/* Pig Advisory Card */}
+                <div className="bg-white rounded-2xl p-6 border-l-8 border-pink-400 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600">
+                            <Icon icon="mdi:pig" className="w-6 h-6"/>
+                        </div>
+                        <h3 className="font-bold text-gray-800">Pig Farming Advisory</h3>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                        {weatherTips ? weatherTips.pig : "Loading specific advice..."}
+                    </p>
+                </div>
+
+                {/* Poultry Advisory Card */}
+                <div className="bg-white rounded-2xl p-6 border-l-8 border-orange-400 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
+                            <Icon icon="mdi:duck" className="w-6 h-6"/>
+                        </div>
+                        <h3 className="font-bold text-gray-800">Poultry Advisory</h3>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                        {weatherTips ? weatherTips.poultry : "Loading specific advice..."}
+                    </p>
+                </div>
+              </div>
+
+              {/* Forecast Chart */}
+              <Card>
+                <h3 className="font-semibold text-neutral-800 mb-6 flex items-center gap-2">
+                    <Icon icon="mdi:calendar-clock" className="text-blue-500"/> 5-Day Temperature Trend
+                </h3>
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={rainfallTrend}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="mm" fill="#3b82f6" name="Rainfall (mm)" />
-                    </BarChart>
+                    <LineChart data={weather ? weather.list.slice(0, 8).map((i: any) => ({
+                        time: new Date(i.dt * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                        temp: i.main.temp
+                    })) : []}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                      <XAxis 
+  dataKey="time"
+  axisLine={false}
+  tickLine={false}
+  tick={{ fill: "#6b7280", fontSize: 12 }}
+/>
+
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} unit="°C" />
+                      <Tooltip contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}} />
+                      <Line type="monotone" dataKey="temp" stroke="#3b82f6" strokeWidth={3} dot={{r: 4, fill:'#3b82f6', strokeWidth:0}} activeDot={{r: 6}} />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </Card>
+
+              {/* Slim Apple-style 5-day forecast bars */}
+<Card>
+  <h3 className="font-semibold text-neutral-800 mb-6 flex items-center gap-2">
+    <Icon icon="mdi:chart-bar" className="text-blue-500" /> Next 5 Days (Slim Forecast)
+  </h3>
+
+  <div className="h-56">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={slimForecastData}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+        
+        <XAxis 
+          dataKey="day" 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{ fill: "#6b7280", fontSize: 12 }}
+        />
+
+        <YAxis 
+          hide={true}        // Apple-style—no Y axis visible
+        />
+
+        <Tooltip 
+          cursor={{ fill: "transparent" }}
+          contentStyle={{
+            borderRadius: "8px",
+            border: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          }}
+          formatter={(value) => `${value}°C`}
+        />
+
+        <Bar dataKey="temp" radius={[6, 6, 6, 6]} barSize={16}>
+  {slimForecastData.map(
+    (d: { time: string; temp: number }, i: number) => (
+      <Cell key={i} fill="#3b82f6" />
+    )
+  )}
+</Bar>
+
+
+
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</Card>
+
+
             </motion.div>
           )}
 
           {/* ========== TAB: ALERTS ========== */}
-          {activeTab === "alerts" && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="space-y-4">
-              {securityAlerts.map((alert, i) => (
-                <Card key={i}>
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`p-3 rounded-full ${
-                        alert.level === "high"
-                          ? "bg-red-100 text-red-600"
-                          : alert.level === "medium"
-                          ? "bg-orange-100 text-orange-600"
-                          : "bg-yellow-100 text-yellow-600"
-                      }`}
-                    >
-                      <Icon icon={alert.icon} className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-neutral-800">{alert.title}</h3>
-                      <p className="text-sm text-neutral-600 mt-1">{alert.detail}</p>
-                      <span
-                        className={`inline-block mt-2 text-xs px-2 py-1 rounded border ${
-                          alert.level === "high"
-                            ? "border-red-200 text-red-700 bg-red-50"
-                            : alert.level === "medium"
-                            ? "border-orange-200 text-orange-700 bg-orange-50"
-                            : "border-yellow-200 text-yellow-700 bg-yellow-50"
-                        }`}
-                      >
-                        {alert.level.toUpperCase()} PRIORITY
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </motion.div>
-          )}
+          {activeTab === "outbreak" && (
+  <div className="animate-fadeIn">
+    <DiseaseAlertsDashboard />
+  </div>
+)}
+
+
 
           {/* ========== TAB: SCHEMES (INTEGRATED) ========== */}
           {activeTab === "schemes" && (
@@ -1022,7 +1146,7 @@ export default function FarmerDashboardPage() {
                   {schemesLoading ? (
                     <span className="flex items-center justify-center gap-2"><Icon icon="mdi:loading" className="animate-spin" /> Loading Schemes from Database...</span>
                   ) : (
-                     <>Found {filteredSchemes.length} scheme{filteredSchemes.length !== 1 ? 's' : ''}</>
+                      <>Found {filteredSchemes.length} scheme{filteredSchemes.length !== 1 ? 's' : ''}</>
                   )}
                 </p>
               </div>
@@ -1080,12 +1204,13 @@ export default function FarmerDashboardPage() {
 }
 
 // --- Scheme Card Component (Adapted from GovtScheme.jsx) ---
-function SchemeCard({ scheme, index }: { scheme: SchemeData; index: number }) {
+// FIX: Added optional className to type definition to resolve TS error
+function SchemeCard({ scheme, index, className }: { scheme: SchemeData; index: number; className?: string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div 
-      className="group bg-white rounded-3xl shadow-lg border border-emerald-100/50 p-8 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 relative"
+      className={`group bg-white rounded-3xl shadow-lg border border-emerald-100/50 p-8 hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 relative ${className || ''}`}
       style={{
         animationDelay: `${index * 100}ms`,
         animation: `slideInUp 0.6s ease-out ${index * 100}ms both`

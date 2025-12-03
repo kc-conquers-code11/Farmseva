@@ -24,7 +24,7 @@ export default function LoginPage() {
       return;
     }
 
-    // role from profiles
+    // Fetch role from profiles table
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -33,14 +33,16 @@ export default function LoginPage() {
 
     let role = profile?.role || "farmer";
 
-    // hard override for specific email
+    // Hard override for admin email
     if (data.user.email === "admin@farmseva.in") {
       role = "admin";
     }
 
+    // Redirect based on final role
     if (role === "admin") router.push("/dashboard/admin");
     else if (role === "vet") router.push("/dashboard/vet");
-    else router.push("/dashboard/farmer");
+    else if (role === "retailer") router.push("/dashboard/retailer");
+    else router.push("/dashboard/farmer"); // fallback
   };
 
   return (

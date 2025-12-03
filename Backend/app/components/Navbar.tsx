@@ -1,4 +1,7 @@
+/// <reference path="../../types/supabase.d.ts" />
+
 'use client'
+
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -8,11 +11,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSupabaseUser } from "@/hooks/useSupabaseUser" // Import auth hook
 import { supabase } from "@/lib/supabaseClient" // Import supabase client
 
+
+
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const { user } = useSupabaseUser() // Get auth state
+  
 
   // Helper to determine if a link is active
   const isActive = (path: string) => pathname === path
@@ -21,7 +27,8 @@ export default function Navbar() {
     await supabase.auth.signOut()
     router.push('/')
     // Force reload to update UI state if router.push doesn't trigger re-render of user
-    // window.location.reload() 
+    // window.location.reload()
+    
   }
 
   return (
