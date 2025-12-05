@@ -14,6 +14,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
+    // 1) LOGIN
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -24,25 +25,32 @@ export default function LoginPage() {
       return;
     }
 
-    // Fetch role from profiles table
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
+    const user = data.user;
 
-    let role = profile?.role || "farmer";
+    // 2) GET ROLE FROM user_metadata (most reliable)
+    let role = user.user_metadata.role;
 
-    // Hard override for admin email
-    if (data.user.email === "admin@farmseva.in") {
+    // 3) Fallback to profiles table if missing
+    if (!role) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      role = profile?.role || "farmer";
+    }
+
+    // 4) Hard override for main admin email
+    if (email === "admin@farmseva.in") {
       role = "admin";
     }
 
-    // Redirect based on final role
+    // 5) Redirect based on final role
     if (role === "admin") router.push("/dashboard/admin");
     else if (role === "vet") router.push("/dashboard/vet");
     else if (role === "retailer") router.push("/dashboard/retailer");
-    else router.push("/dashboard/farmer"); // fallback
+    else router.push("/dashboard/farmer");
   };
 
   return (

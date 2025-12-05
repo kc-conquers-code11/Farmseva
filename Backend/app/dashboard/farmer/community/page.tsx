@@ -44,6 +44,7 @@ interface Post {
   author_name?: string 
 }
 
+// --- COMPONENT START ---
 export default function CommunityPage() {
   const router = useRouter()
   const { user } = useSupabaseUser()
@@ -74,6 +75,10 @@ export default function CommunityPage() {
   const [reportReason, setReportReason] = useState('')
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
 
+  // NEW STATE: Tracks posts reported by the current user
+  const [reportedPostIds, setReportedPostIds] = useState<number[]>([]);
+
+
   // -- 1. GET USER LOCATION --
   useEffect(() => {
     if (navigator.geolocation) {
@@ -100,16 +105,19 @@ export default function CommunityPage() {
       .channel('realtime posts')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'community_posts' }, (payload) => {
         const newPost = payload.new as Post
-        setPosts((prev) => [newPost, ...prev])
+        // Only show new post if it hasn't been reported by this user (unlikely for new posts, but good check)
+        if (!reportedPostIds.includes(newPost.id)) { 
+             setPosts((prev) => [newPost, ...prev])
+        }
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [reportedPostIds]) // Dependency added to consider reported posts list
 
-  // -- 3. FETCH POSTS --
+  // -- 3. FETCH POSTS (Safe: Uses parameterized queries) --
   const fetchPosts = async (lat: number, lng: number, global = false) => {
     const range = 0.5 
     
@@ -129,10 +137,10 @@ export default function CommunityPage() {
 
       const { data, error } = await query
       if (error) throw error
+      // Filter out posts that were previously reported by the user (if persistent storage was used)
       setPosts(data as Post[])
       
     } catch (err) {
-      // Fallback simple fetch if profiles relation fails
       const { data } = await supabase
         .from('community_posts')
         .select('*')
@@ -160,17 +168,24 @@ export default function CommunityPage() {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
-  // -- 5. SUBMIT POST --
+  // -- 5. SUBMIT POST (Security: Auth check & Server-Error Handling) --
   const handlePost = async () => {
-    if ((!newPost.trim() && !selectedImage) || !user) return
+    if (!user) {
+      alert("Please log in to post.");
+      return;
+    }
+
+    const postContent = newPost.trim(); 
+
+    if (!postContent && !selectedImage) return
+
     
     setIsUploading(true)
     let imageUrl = null
 
-    // 1. Upload Image if exists
     if (selectedImage) {
       const fileExt = selectedImage.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`
       const filePath = `${user.id}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
@@ -188,16 +203,15 @@ export default function CommunityPage() {
       imageUrl = data.publicUrl
     }
 
-    // 2. Insert Post
     const { error } = await supabase.from('community_posts').insert({
       user_id: user.id,
-      content: newPost,
+      content: postContent, 
       post_type: postType,
       latitude: location?.lat || 0,
       longitude: location?.lng || 0,
       image_url: imageUrl,
       likes: [], 
-      author_name: user.user_metadata?.full_name || "FarmSeva User" 
+      author_name: user.user_metadata?.fullname || "FarmSeva User" 
     })
 
     setIsUploading(false)
@@ -208,13 +222,18 @@ export default function CommunityPage() {
       const lat = location?.lat || 0
       fetchPosts(lat, location?.lng || 0, lat === 0)
     } else {
-      alert("Failed to post. Please try again.")
+      if (error.message.includes('Inappropriate content detected')) {
+        alert("Your post was blocked because it contains inappropriate language.")
+      } else {
+        alert("Failed to post. Please try again.")
+      }
     }
   }
 
   // -- OTHER ACTIONS --
   const handleLike = async (postId: number, currentLikes: string[] | null) => {
     if (!user) return alert("Please log in to like posts")
+    
     const likesArr = Array.isArray(currentLikes) ? currentLikes : []
     const hasLiked = likesArr.includes(user.id)
     const updatedLikes = hasLiked ? likesArr.filter(id => id !== user.id) : [...likesArr, user.id]
@@ -236,21 +255,18 @@ export default function CommunityPage() {
     }
     setActiveCommentId(postId)
     
-    // FETCH COMMENTS LOGIC
     if (!comments[postId]) {
       setLoadingComments(true)
       
-      // Attempt 1: Fetch with profiles (Preferred)
       const { data, error } = await supabase
         .from('comments')
         .select(`*, profiles (fullname)`)
-        .eq('post_id', postId)
+        .eq('post_id', postId) 
         .order('created_at', { ascending: true })
 
       if (!error && data) {
         setComments(prev => ({...prev, [postId]: data as unknown as Comment[] }))
       } else {
-        // Attempt 2: Fallback (Simple fetch if relations fail)
         console.warn("Comments relation fetch failed, using fallback.", error?.message)
         
         const { data: simpleData } = await supabase
@@ -268,18 +284,22 @@ export default function CommunityPage() {
   }
 
   const submitComment = async (postId: number) => {
-    if (!newComment.trim() || !user) return
+    if (!user) return alert("Please log in to comment")
+    
+    const commentContent = newComment.trim();
+    if (!commentContent) return
+
+    setNewComment('') 
+
     const tempComment: Comment = {
       id: Date.now(),
       post_id: postId,
       user_id: user.id,
-      content: newComment,
+      content: commentContent, 
       created_at: new Date().toISOString(),
       profiles: { fullname: user.user_metadata?.full_name || 'Me' }
     }
     setComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), tempComment] }))
-    const commentContent = newComment
-    setNewComment('')
 
     const { error } = await supabase.from('comments').insert({
       post_id: postId,
@@ -289,7 +309,13 @@ export default function CommunityPage() {
     
     if (error) {
       console.error("Comment failed:", error.message)
-      alert(`Failed to save comment: ${error.message}`)
+      setComments(prev => ({ ...prev, [postId]: (prev[postId] || []).filter(c => c.id !== tempComment.id) }))
+      
+      if (error.message.includes('Inappropriate content detected')) {
+        alert("Your comment was blocked because it contains inappropriate language.")
+      } else {
+        alert(`Failed to save comment: ${error.message}`)
+      }
     }
   }
 
@@ -309,29 +335,41 @@ export default function CommunityPage() {
 
   // --- REPORTING LOGIC ---
   const openReportModal = (postId: number) => {
+    if (!user) return alert("Please log in to report posts") 
     setReportingPostId(postId)
     setReportModalOpen(true)
     setMenuOpenId(null)
   }
 
   const submitReport = async () => {
-    if (!reportReason) return alert("Please select a reason.")
+    if (!reportReason || reportingPostId === null) return alert("Please select a reason.")
     
-    // Simulate DB call
+    const postIdToHide = reportingPostId;
+
+    // 1. ADD POST ID TO THE REPORTED STATE (Hides it immediately for this user)
+    setReportedPostIds(prev => [...prev, postIdToHide])
+
+    // 2. Clear Modal State
+    setReportModalOpen(false)
+    setReportReason('')
+    setReportingPostId(null)
+
+    // Simulate DB call (In a real app, this would be an INSERT into a reports table)
     setTimeout(() => {
-        alert("Thanks for reporting. We will review this post shortly.")
-        setReportModalOpen(false)
-        setReportReason('')
-        setReportingPostId(null)
+        alert("Thanks for reporting. This post has been hidden from your view and submitted for review.")
     }, 500)
   }
 
   // -- RENDER HELPERS --
-  const displayPosts = posts.filter(p => {
-    if (activeTab === 'questions') return p.post_type === 'question'
-    if (activeTab === 'alerts') return p.post_type === 'alert'
-    return true 
-  })
+  const displayPosts = posts
+    // 1. Filter by Tab
+    .filter(p => {
+        if (activeTab === 'questions') return p.post_type === 'question'
+        if (activeTab === 'alerts') return p.post_type === 'alert'
+        return true 
+    })
+    // 2. Filter out Reported Posts
+    .filter(p => !reportedPostIds.includes(p.id))
 
   const getBadgeColor = (type: string) => {
     switch(type) {
@@ -380,7 +418,7 @@ export default function CommunityPage() {
                     </div>
                     <div className="flex gap-3">
                         <button onClick={() => setReportModalOpen(false)} className="flex-1 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition">Cancel</button>
-                        <button onClick={submitReport} className="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-sm">Submit Report</button>
+                        <button onClick={submitReport} disabled={!reportReason} className="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition shadow-sm disabled:opacity-50">Submit Report</button>
                     </div>
                 </motion.div>
             </motion.div>
@@ -400,20 +438,20 @@ export default function CommunityPage() {
            <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 hover:text-green-600 mb-4 transition font-medium">
              <ArrowLeft size={18} /> Back to Dashboard
            </button>
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-            <NavItem icon={<Users size={20}/>} label="Community Feed" active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} />
-            <NavItem icon={<MessageSquare size={20}/>} label="Questions Only" active={activeTab === 'questions'} onClick={() => setActiveTab('questions')} />
-            <NavItem icon={<AlertTriangle size={20}/>} label="Local Alerts" active={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')} />
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
-              <TrendingUp size={18} className="text-green-600"/> Trending Locally
-            </h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-gray-50 pb-2"><p className="font-bold text-sm text-red-600">#BirdFluCheck</p><p className="text-xs text-gray-400">High Priority</p></div>
-              <div className="flex justify-between items-center border-b border-gray-50 pb-2"><p className="font-bold text-sm text-gray-800">#MaizePrices</p><p className="text-xs text-gray-400">Rising</p></div>
-            </div>
-          </div>
+           <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+             <NavItem icon={<Users size={20}/>} label="Community Feed" active={activeTab === 'feed'} onClick={() => setActiveTab('feed')} />
+             <NavItem icon={<MessageSquare size={20}/>} label="Questions Only" active={activeTab === 'questions'} onClick={() => setActiveTab('questions')} />
+             <NavItem icon={<AlertTriangle size={20}/>} label="Local Alerts" active={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')} />
+           </div>
+           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+             <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+               <TrendingUp size={18} className="text-green-600"/> Trending Locally
+             </h3>
+             <div className="space-y-4">
+               <div className="flex justify-between items-center border-b border-gray-50 pb-2"><p className="font-bold text-sm text-red-600">#BirdFluCheck</p><p className="text-xs text-gray-400">High Priority</p></div>
+               <div className="flex justify-between items-center border-b border-gray-50 pb-2"><p className="font-bold text-sm text-gray-800">#MaizePrices</p><p className="text-xs text-gray-400">Rising</p></div>
+             </div>
+           </div>
         </div>
 
         {/* Center Feed */}
@@ -431,7 +469,7 @@ export default function CommunityPage() {
                   value={newPost}
                   onChange={(e) => setNewPost(e.target.value)}
                   placeholder={user ? "Share an update, ask a question..." : "Please log in to post"}
-                  disabled={!user}
+                  disabled={!user || isUploading}
                   className="w-full bg-gray-50 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 resize-none border border-gray-200 transition-all"
                   rows={3}
                 />
@@ -453,9 +491,9 @@ export default function CommunityPage() {
             
             <div className="flex flex-wrap gap-2 mb-4">
                {/* Post Types */}
-                <button onClick={() => setPostType('update')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'update' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}>📢 Update</button>
-                <button onClick={() => setPostType('question')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'question' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>❓ Question</button>
-                <button onClick={() => setPostType('alert')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'alert' ? 'bg-red-600 text-white' : 'bg-white text-gray-600'}`}>🚨 Alert</button>
+               <button onClick={() => setPostType('update')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'update' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}>📢 Update</button>
+               <button onClick={() => setPostType('question')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'question' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>❓ Question</button>
+               <button onClick={() => setPostType('alert')} className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${postType === 'alert' ? 'bg-red-600 text-white' : 'bg-white text-gray-600'}`}>🚨 Alert</button>
             </div>
 
             <div className="flex justify-between items-center border-t border-gray-100 pt-3">
@@ -467,7 +505,8 @@ export default function CommunityPage() {
                 {/* Image Upload Button */}
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-600 transition"
+                  disabled={!user || isUploading}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-600 transition disabled:opacity-50"
                 >
                   <ImageIcon size={16} /> Photo
                 </button>
@@ -482,7 +521,7 @@ export default function CommunityPage() {
 
               <button 
                 onClick={handlePost}
-                disabled={(!newPost && !selectedImage) || !user || isUploading}
+                disabled={(!newPost.trim() && !selectedImage) || !user || isUploading}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-50 transition shadow-sm"
               >
                 {isUploading ? <Loader2 size={16} className="animate-spin"/> : <Send size={16} />}
@@ -595,15 +634,15 @@ export default function CommunityPage() {
                               <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center text-xs font-bold border shrink-0">{cAuth[0]}</div>
                               <div className="bg-white p-2 rounded-lg border flex-1">
                                 <p className="text-xs font-bold">{cAuth}</p>
-                                <p className="text-gray-700">{comment.content}</p>
+                                <p className="text-gray-700 whitespace-pre-wrap">{comment.content}</p> 
                               </div>
                             </div>
                            )
                         })}
                       </div>
                       <div className="flex gap-2">
-                        <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment..." className="flex-1 text-sm p-2 rounded border focus:outline-none focus:border-green-500"/>
-                        <button onClick={() => submitComment(post.id)} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700"><Send size={16} /></button>
+                        <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment..." className="flex-1 text-sm p-2 rounded border focus:outline-none focus:border-green-500" disabled={!user}/>
+                        <button onClick={() => submitComment(post.id)} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50" disabled={!user}><Send size={16} /></button>
                       </div>
                     </motion.div>
                   )}
@@ -620,7 +659,7 @@ export default function CommunityPage() {
              <div className="flex items-center gap-2 mb-2 text-blue-700 font-bold"><Stethoscope size={20} /> Need Expert Help?</div>
              <p className="text-sm text-blue-600 mb-4">Something wrong with your livestock? Ask a specific question to our veterinary panel.</p>
              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm transition">Ask an Expert</button>
-          </div>
+           </div>
         </div>
       </div>
     </div>

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
+import VetRequestsList from "./VetRequestsList";
+import VetHistoryList from "./VetHistoryList"; // <--- NEW IMPORT
 import {
   BarChart,
   Bar,
@@ -22,7 +24,7 @@ import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 export default function VetDashboardPage() {
   const { user, loading } = useSupabaseUser();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "outbreaks" | "visits" | "training"
+    "overview" | "outbreaks" | "visits" | "training" | "history" // <--- Added "history"
   >("overview");
 
   // ---------- Mock data (later connect to Supabase / APIs) ----------
@@ -198,6 +200,7 @@ export default function VetDashboardPage() {
                 { key: "outbreaks", label: "Outbreaks", icon: "mdi:virus" },
                 { key: "visits", label: "Visits", icon: "mdi:map-marker-path" },
                 { key: "training", label: "Training", icon: "mdi:school-outline" },
+                { key: "history", label: "History", icon: "mdi:history" }, // <--- Added History Button
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -311,6 +314,8 @@ export default function VetDashboardPage() {
                   </p>
                 </Card>
               </div>
+
+              <VetRequestsList vetId={user.id} />
 
               {/* Outbreak trend chart */}
               <Card>
@@ -604,6 +609,19 @@ export default function VetDashboardPage() {
               </Card>
             </motion.div>
           )}
+
+          {/* --------- TAB: HISTORY (NEW) --------- */}
+          {activeTab === "history" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-6"
+            >
+              <VetHistoryList vetId={user.id} />
+            </motion.div>
+          )}
+
         </div>
       </div>
     </div>
