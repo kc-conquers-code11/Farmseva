@@ -13,12 +13,11 @@ export default function VetRequestsList({ vetId }: { vetId: string }) {
   async function loadRequests() {
     console.log("Fetching requests for Vet ID:", vetId);
 
-    // FIX: Use the new simple name "fk_farmer_profile"
     const { data, error } = await supabase
       .from("vet_requests")
       .select(`
         *,
-        profiles!fk_farmer_profile (
+        profiles:farmer_id (
           fullname,
           phone
         )
@@ -30,7 +29,6 @@ export default function VetRequestsList({ vetId }: { vetId: string }) {
     if (error) {
       console.error("❌ Supabase Error:", error);
     } else {
-      console.log("✅ Requests Loaded:", data);
       setRequests(data || []);
     }
     setLoading(false);
@@ -84,8 +82,7 @@ export default function VetRequestsList({ vetId }: { vetId: string }) {
             });
           }
 
-          // Reload the list to get the joined 'profile' data (Farmer Name)
-          // (Payload only contains raw IDs, so we re-fetch to get the name)
+          // Reload the list
           loadRequests();
         }
       )
@@ -97,102 +94,111 @@ export default function VetRequestsList({ vetId }: { vetId: string }) {
     };
   }, [vetId]);
 
+  // Helper for urgency styles
+  const getUrgencyStyles = (level: string) => {
+    switch (level) {
+      case 'high': return 'bg-red-50 text-red-700 border-red-100 ring-red-100';
+      case 'medium': return 'bg-orange-50 text-orange-700 border-orange-100 ring-orange-100';
+      default: return 'bg-green-50 text-green-700 border-green-100 ring-green-100';
+    }
+  };
+
   if (loading)
     return (
-      <div className="flex items-center gap-2 text-neutral-500 py-4">
-        <Icon icon="mdi:loading" className="animate-spin" /> Loading requests...
+      <div className="flex justify-center py-8">
+        <Icon icon="mdi:loading" className="animate-spin text-neutral-400 w-6 h-6" />
       </div>
     );
 
   if (requests.length === 0)
     return (
-      <Card>
-        <div className="text-center py-8">
-          <div className="bg-green-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Icon icon="mdi:check" className="text-green-600 w-6 h-6" />
+      <Card className="border-none shadow-sm ring-1 ring-neutral-100">
+        <div className="text-center py-10">
+          <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-100">
+            <Icon icon="mdi:check-all" className="text-green-600 w-8 h-8" />
           </div>
-          <p className="text-neutral-500">No pending requests.</p>
-          <p className="text-xs text-neutral-400">You are all caught up!</p>
+          <h3 className="text-lg font-bold text-neutral-800">All Caught Up!</h3>
+          <p className="text-sm text-neutral-500 mt-1">No pending requests at the moment.</p>
         </div>
       </Card>
     );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-neutral-800 flex items-center gap-2">
-          <Icon icon="mdi:bell-ring-outline" className="w-5 h-5 text-red-500 animate-pulse" />
-          Incoming Requests
-        </h2>
-        <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-full">
+    <Card className="border-none shadow-sm ring-1 ring-neutral-100">
+      <div className="flex items-center justify-between mb-6 border-b border-neutral-100 pb-4">
+        <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-50 rounded-xl text-red-600">
+                <Icon icon="mdi:bell-ring-outline" className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+                <h2 className="text-lg font-bold text-neutral-800">Incoming Requests</h2>
+                <p className="text-xs text-neutral-500">Farmers needing assistance</p>
+            </div>
+        </div>
+        <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm shadow-red-200">
           {requests.length} Pending
         </span>
       </div>
 
-      <div className="grid gap-4">
+      <div className="space-y-4">
         {requests.map((req) => (
           <div
             key={req.id}
-            className="border-l-4 border-l-red-500 bg-white rounded-r-lg shadow-sm p-4 hover:shadow-md transition-shadow animate-in slide-in-from-top-2"
+            className="group relative bg-white rounded-xl border border-neutral-200 p-5 hover:border-red-200 hover:shadow-md transition-all duration-300"
           >
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-lg text-neutral-800">
-                  {req.farm_name || "Unknown Farm"}
-                </h3>
-                <div className="flex items-center gap-2 text-sm text-neutral-600 mb-2">
-                  <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded">
-                    <Icon icon="mdi:paw" className="text-neutral-500" />
-                    {req.species}
-                  </span>
-                  <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded">
-                    <Icon icon="mdi:map-marker" className="text-neutral-500" />
-                    {req.district}
-                  </span>
-                </div>
+            <div className="flex justify-between items-start mb-3">
+              <div className="flex gap-4">
+                 {/* Species Icon */}
+                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl border ${req.species === 'Pig' ? 'bg-pink-50 border-pink-100' : 'bg-orange-50 border-orange-100'}`}>
+                    <Icon icon={req.species === 'Pig' ? 'mdi:pig' : 'mdi:bird'} className={req.species === 'Pig' ? 'text-pink-500' : 'text-orange-500'} />
+                 </div>
+                 
+                 <div>
+                    <h3 className="font-bold text-lg text-neutral-900 leading-tight">
+                        {req.farm_name || "Unknown Farm"}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 mt-1">
+                        <span className="flex items-center gap-1">
+                            <Icon icon="mdi:account" /> {req.profiles?.fullname || "Farmer"}
+                        </span>
+                        <span className="w-1 h-1 bg-neutral-300 rounded-full"></span>
+                        <span className="flex items-center gap-1">
+                            <Icon icon="mdi:map-marker" /> {req.district}
+                        </span>
+                    </div>
+                 </div>
               </div>
-              <span
-                className={`px-2 py-1 rounded text-xs font-bold uppercase ${
-                  req.urgency === "high"
-                    ? "bg-red-100 text-red-700"
-                    : req.urgency === "medium"
-                    ? "bg-orange-100 text-orange-700"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {req.urgency}
+
+              <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border ${getUrgencyStyles(req.urgency)}`}>
+                {req.urgency} Priority
               </span>
             </div>
 
-            <div className="bg-neutral-50 p-3 rounded-lg text-sm text-neutral-700 mb-3 border border-neutral-100">
-              <span className="font-semibold text-neutral-900">Symptoms: </span>
-              {req.symptoms}
+            <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-100 mb-4">
+                <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Symptoms Reported</p>
+                <p className="text-sm text-neutral-700 font-medium leading-relaxed">
+                    "{req.symptoms}"
+                </p>
             </div>
 
-            <div className="flex items-center justify-between mt-2">
-              <div className="text-xs text-neutral-500 flex flex-col">
-                <span>Farmer: {req.profiles?.fullname || "Unknown"}</span>
-                <span>Phone: {req.profiles?.phone || "N/A"}</span>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => updateStatus(req.id, "rejected")}
-                  className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => updateStatus(req.id, "accepted")}
-                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm flex items-center gap-1"
-                >
-                  <Icon icon="mdi:check" /> Accept
-                </button>
-              </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => updateStatus(req.id, "rejected")}
+                className="flex-1 py-2.5 px-4 rounded-lg border border-neutral-200 text-neutral-600 font-bold text-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <Icon icon="mdi:close" className="w-4 h-4" /> Reject
+              </button>
+              
+              <button
+                onClick={() => updateStatus(req.id, "accepted")}
+                className="flex-1 py-2.5 px-4 rounded-lg bg-neutral-900 text-white font-bold text-sm hover:bg-black transition-all shadow-lg shadow-neutral-200 flex items-center justify-center gap-2 transform active:scale-95"
+              >
+                <Icon icon="mdi:check" className="w-4 h-4" /> Accept Request
+              </button>
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   );
 }

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 type SupabaseUser = {
+  user_metadata: any;
   id: string;
   email: string | null;
   displayName: string;

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
 import Navbar from "@/app/components/Navbar";
-import Card from "@/app/components/Card";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 
 // --- Mock Data Types ---
@@ -21,7 +20,7 @@ type TrainingModule = {
 
 type Recommendation = {
   id: string;
-  category: "pig" | "poultry" | "biosecurity";
+  category: "pig" | "poultry" | "biosecurity" | "general";
   title: string;
   content: string;
   icon: string;
@@ -126,212 +125,242 @@ export default function FarmerTrainingPage() {
     activeFilter === "all" ? true : r.category === activeFilter || r.category === "biosecurity" || r.category === "general"
   );
 
+  // --- Helper to get status color ---
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'in-progress': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'locked': return 'bg-gray-100 text-gray-500 border-gray-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+  };
+
   // --- Loading State ---
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Icon icon="mdi:loading" className="w-8 h-8 animate-spin text-green-600" />
+        <Icon icon="mdi:loading" className="w-10 h-10 animate-spin text-green-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50 font-sans">
       <Navbar />
 
-      <div className="pt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <h1 className="text-3xl font-light text-neutral-800">
-                Farmer Training <span className="font-semibold text-green-600">Hub</span>
-              </h1>
-              <p className="text-neutral-600 text-sm mt-1">
-                Enhance your farming skills with expert modules and best practices.
-              </p>
-            </motion.div>
-
-            {/* Filter Tabs */}
-            <div className="flex p-1 bg-white border border-gray-200 rounded-lg shadow-sm">
-              {(["all", "pig", "poultry"] as const).map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
-                    activeFilter === filter
-                      ? "bg-green-600 text-white shadow-sm"
-                      : "text-gray-500 hover:text-green-600"
-                  }`}
-                >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                </button>
-              ))}
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
+        
+        {/* === LEFT SIDEBAR === */}
+        <aside className="w-full md:w-80 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-y-auto no-scrollbar p-6 flex-shrink-0">
+            <div className="mb-8">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700">
+                        <Icon icon="mdi:school-outline" className="w-6 h-6"/>
+                    </div>
+                    <h1 className="text-2xl font-bold text-neutral-800">Knowledge Hub</h1>
+                </div>
+                <p className="text-neutral-500 text-sm leading-relaxed">Master modern farming techniques with our expert-curated modules.</p>
             </div>
-          </div>
 
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="border-l-4 border-l-blue-500">
-              <div className="flex items-center justify-between">
+            <div className="space-y-8">
+                {/* Filters */}
                 <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase">Modules Completed</p>
-                  <h3 className="text-2xl font-bold text-gray-800">1/5</h3>
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3 block">Categories</label>
+                    <div className="space-y-2">
+                        {[
+                            { id: 'all', label: 'All Courses', icon: 'mdi:apps' },
+                            { id: 'pig', label: 'Pig Farming', icon: 'mdi:pig' },
+                            { id: 'poultry', label: 'Poultry Farming', icon: 'mdi:bird' }
+                        ].map((cat) => (
+                            <button
+                                key={cat.id}
+                                onClick={() => setActiveFilter(cat.id as any)}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                    activeFilter === cat.id 
+                                    ? 'bg-white border-2 border-indigo-500 text-indigo-700 shadow-md' 
+                                    : 'bg-white border border-transparent text-neutral-600 hover:bg-neutral-100'
+                                }`}
+                            >
+                                <Icon icon={cat.icon} className={`w-5 h-5 ${activeFilter === cat.id ? 'text-indigo-600' : 'text-neutral-400'}`}/>
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-full">
-                  <Icon icon="mdi:school-outline" className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
-            <Card className="border-l-4 border-l-amber-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase">Learning Hours</p>
-                  <h3 className="text-2xl font-bold text-gray-800">2.5 Hrs</h3>
-                </div>
-                <div className="p-3 bg-amber-50 text-amber-600 rounded-full">
-                  <Icon icon="mdi:clock-outline" className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
-            <Card className="border-l-4 border-l-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase">Certificates</p>
-                  <h3 className="text-2xl font-bold text-gray-800">1 Earned</h3>
-                </div>
-                <div className="p-3 bg-green-50 text-green-600 rounded-full">
-                  <Icon icon="mdi:certificate-outline" className="w-6 h-6" />
-                </div>
-              </div>
-            </Card>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Offline Pack */}
+                <div className="p-5 bg-gradient-to-br from-indigo-600 to-blue-600 rounded-2xl text-white shadow-lg shadow-indigo-200">
+                    <div className="flex items-start gap-3 mb-3">
+                        <Icon icon="mdi:wifi-off" className="w-6 h-6 opacity-80"/>
+                        <div>
+                            <h4 className="font-bold text-sm">Poor Internet?</h4>
+                            <p className="text-xs opacity-80 mt-1">Download the complete manual for offline reading.</p>
+                        </div>
+                    </div>
+                    <button className="w-full py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                        <Icon icon="mdi:download" className="w-4 h-4"/> Download PDF (12MB)
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        {/* === MAIN CONTENT === */}
+        <main className="flex-1 p-6 md:p-10 overflow-y-auto">
             
-            {/* LEFT COLUMN: Training Modules */}
-            <div className="lg:col-span-2 space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <Icon icon="mdi:youtube-tv" className="text-red-500" />
-                Training Modules
-              </h2>
-              
-              <div className="space-y-4">
-                {filteredModules.map((module) => (
-                  <motion.div
-                    key={module.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="group bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col sm:flex-row gap-4"
-                  >
-                    {/* Thumbnail / Icon */}
-                    <div className={`w-full sm:w-32 h-24 rounded-lg flex flex-col items-center justify-center shrink-0 ${
-                      module.status === 'locked' ? 'bg-gray-100 text-gray-400' : 'bg-green-50 text-green-600'
-                    }`}>
-                      <Icon 
-                        icon={module.type === 'video' ? 'mdi:play-circle' : module.type === 'pdf' ? 'mdi:file-pdf-box' : 'mdi:format-list-checks'} 
-                        className="w-10 h-10"
-                      />
-                      <span className="text-[10px] font-bold mt-1 uppercase">{module.type}</span>
+            {/* Stats Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+                <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                        <Icon icon="mdi:check-circle-outline" className="w-6 h-6"/>
                     </div>
-
-                    {/* Content */}
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between items-start">
-                          <h3 className="font-bold text-gray-800 group-hover:text-green-700 transition-colors">
-                            {module.title}
-                          </h3>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase border ${
-                            module.category === 'pig' ? 'bg-pink-50 text-pink-700 border-pink-100' :
-                            module.category === 'poultry' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                            'bg-blue-50 text-blue-700 border-blue-100'
-                          }`}>
-                            {module.category}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{module.description}</p>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span className="flex items-center gap-1"><Icon icon="mdi:clock-time-four-outline"/> {module.duration}</span>
-                          {module.status === 'completed' && <span className="flex items-center gap-1 text-green-600"><Icon icon="mdi:check-circle"/> Completed</span>}
-                        </div>
-                        
-                        <button 
-                          disabled={module.status === 'locked'}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                            module.status === 'locked' 
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                              : module.status === 'completed'
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-green-600 text-white hover:bg-green-700'
-                          }`}
-                        >
-                          {module.status === 'locked' ? 'Locked' : module.status === 'completed' ? 'Review' : 'Start Now'}
-                        </button>
-                      </div>
+                    <div>
+                        <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Completed</p>
+                        <p className="text-2xl font-black text-neutral-800">1/5</p>
                     </div>
-                  </motion.div>
-                ))}
-
-                {filteredModules.length === 0 && (
-                   <div className="text-center py-10 text-gray-500">
-                      No modules found for this category.
-                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: Recommendations */}
-            <div className="lg:col-span-1 space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <Icon icon="mdi:lightbulb-on" className="text-yellow-500" />
-                Smart Recommendations
-              </h2>
-              
-              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-5 border border-yellow-100 shadow-sm">
-                <div className="flex gap-3 mb-3">
-                  <Icon icon="mdi:information-outline" className="w-6 h-6 text-orange-600 shrink-0"/>
-                  <h3 className="font-bold text-orange-900 text-sm">Did you know?</h3>
                 </div>
-                <p className="text-xs text-orange-800 leading-relaxed">
-                  Pigs are highly susceptible to heat stress. Sprinklers should be turned on when the temperature crosses 28°C to maintain feed intake.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {filteredRecs.map((rec) => (
-                  <Card key={rec.id} className="hover:border-green-200 transition-colors cursor-default">
-                    <div className="flex gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center shrink-0 text-green-600">
-                        <Icon icon={rec.icon} className="w-5 h-5"/>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-800 text-sm mb-1">{rec.title}</h4>
-                        <p className="text-xs text-gray-500 leading-relaxed">{rec.content}</p>
-                      </div>
+                <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                        <Icon icon="mdi:clock-time-eight-outline" className="w-6 h-6"/>
                     </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Downloadable Resources Box */}
-              <div className="bg-blue-50 rounded-xl p-5 border border-blue-100 shadow-sm text-center">
-                 <Icon icon="mdi:file-download-outline" className="w-10 h-10 text-blue-600 mx-auto mb-2"/>
-                 <h3 className="font-bold text-gray-800 text-sm mb-1">Offline Guides</h3>
-                 <p className="text-xs text-gray-600 mb-3">Download the complete manual for offline reading.</p>
-                 <button className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition">
-                   Download PDF Pack (12MB)
-                 </button>
-              </div>
-
+                    <div>
+                        <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Learning Time</p>
+                        <p className="text-2xl font-black text-neutral-800">2.5h</p>
+                    </div>
+                </div>
+                <div className="bg-white p-5 rounded-2xl border border-neutral-100 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                        <Icon icon="mdi:certificate-outline" className="w-6 h-6"/>
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Certificates</p>
+                        <p className="text-2xl font-black text-neutral-800">1</p>
+                    </div>
+                </div>
             </div>
 
-          </div>
-        </div>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                
+                {/* --- MODULES LIST --- */}
+                <div className="xl:col-span-2 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-neutral-800">Training Modules</h2>
+                        <span className="text-sm font-medium text-neutral-500">{filteredModules.length} Available</span>
+                    </div>
+
+                    <div className="space-y-4">
+                        {filteredModules.map((module, idx) => (
+                            <motion.div 
+                                key={module.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.1 }}
+                                className={`group relative bg-white border rounded-2xl p-5 shadow-sm hover:shadow-md transition-all ${module.status === 'locked' ? 'border-neutral-100 bg-neutral-50/50' : 'border-neutral-200'}`}
+                            >
+                                <div className="flex flex-col sm:flex-row gap-5">
+                                    {/* Thumbnail Icon */}
+                                    <div className={`w-full sm:w-20 h-20 rounded-xl flex flex-col items-center justify-center shrink-0 ${
+                                        module.status === 'locked' ? 'bg-neutral-200 text-neutral-400' : 
+                                        module.status === 'completed' ? 'bg-green-100 text-green-600' :
+                                        'bg-indigo-50 text-indigo-600'
+                                    }`}>
+                                        <Icon 
+                                            icon={module.type === 'video' ? 'mdi:play-circle' : module.type === 'pdf' ? 'mdi:file-pdf-box' : 'mdi:format-list-checks'} 
+                                            className="w-8 h-8"
+                                        />
+                                        <span className="text-[10px] font-bold uppercase mt-1 tracking-wide">{module.type}</span>
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1">
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
+                                            <div>
+                                                <h3 className={`text-lg font-bold ${module.status === 'locked' ? 'text-neutral-500' : 'text-neutral-800'} group-hover:text-indigo-600 transition-colors`}>
+                                                    {module.title}
+                                                </h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                                                        module.category === 'pig' ? 'bg-pink-100 text-pink-700' :
+                                                        module.category === 'poultry' ? 'bg-orange-100 text-orange-700' :
+                                                        'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                        {module.category}
+                                                    </span>
+                                                    <span className="text-xs text-neutral-500 flex items-center gap-1">
+                                                        <Icon icon="mdi:clock-outline" className="w-3 h-3"/> {module.duration}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(module.status)}`}>
+                                                {module.status === 'in-progress' ? 'In Progress' : module.status.charAt(0).toUpperCase() + module.status.slice(1)}
+                                            </div>
+                                        </div>
+
+                                        <p className="text-sm text-neutral-600 line-clamp-2 mb-4">{module.description}</p>
+
+                                        {/* Progress Bar & Action */}
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full rounded-full transition-all duration-500 ${module.status === 'completed' ? 'bg-green-500' : 'bg-indigo-500'}`} 
+                                                    style={{ width: `${module.progress}%` }}
+                                                ></div>
+                                            </div>
+                                            <button 
+                                                disabled={module.status === 'locked'}
+                                                className={`text-sm font-bold flex items-center gap-1 ${
+                                                    module.status === 'locked' ? 'text-neutral-400 cursor-not-allowed' : 
+                                                    module.status === 'completed' ? 'text-green-600' :
+                                                    'text-indigo-600 hover:underline'
+                                                }`}
+                                            >
+                                                {module.status === 'locked' ? <Icon icon="mdi:lock"/> : module.status === 'completed' ? 'Review' : 'Continue'} 
+                                                {module.status !== 'locked' && <Icon icon="mdi:arrow-right" className="w-4 h-4"/>}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* --- RIGHT COLUMN: TIPS --- */}
+                <div className="xl:col-span-1 space-y-6">
+                    <h2 className="text-xl font-bold text-neutral-800 flex items-center gap-2">
+                        <Icon icon="mdi:lightbulb-on" className="text-yellow-500"/> Smart Tips
+                    </h2>
+
+                    <div className="space-y-4">
+                        {filteredRecs.map((rec, idx) => (
+                            <motion.div 
+                                key={rec.id}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.1 }}
+                                className="bg-white border border-neutral-100 rounded-xl p-5 shadow-sm hover:border-yellow-200 hover:bg-yellow-50/30 transition-colors"
+                            >
+                                <div className="flex gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 shrink-0">
+                                        <Icon icon={rec.icon} className="w-5 h-5"/>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-neutral-800 text-sm mb-1">{rec.title}</h4>
+                                        <p className="text-xs text-neutral-600 leading-relaxed">{rec.content}</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
+
+                        <div className="bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-xl p-6 text-white relative overflow-hidden">
+                            <Icon icon="mdi:format-quote-close" className="absolute top-4 right-4 text-white/10 w-12 h-12"/>
+                            <p className="text-sm font-medium italic relative z-10">"Biosecurity is not a cost, it's an investment in your farm's future."</p>
+                            <p className="text-xs text-neutral-400 mt-2 font-bold uppercase tracking-wider">- Dr. A. Sharma, Vet Expert</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
       </div>
     </div>
   );
