@@ -21,6 +21,7 @@ import {
 
 import Navbar from '@/app/components/Navbar';
 import Card from '@/app/components/Card';
+import ContentGenerator from '@/app/components/ContentGenerator';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -77,7 +78,7 @@ const mockReportedPosts = [
 
 export default function AdminDashboardPage() {
   const { user, loading } = useSupabaseUser();
-  const [activeTab, setActiveTab] = useState<'overview' | 'outbreaks' | 'community' | 'broadcast' | 'schemes' | 'noc'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'outbreaks' | 'community' | 'broadcast' | 'schemes' | 'noc' | 'content'>('overview');
   
   // Data States
   const [stats, setStats] = useState<RoleStats>({ farmers: 0, vets: 0, admins: 0, total: 0 });
@@ -172,6 +173,7 @@ export default function AdminDashboardPage() {
     { id: 'broadcast', label: 'Broadcast Center', icon: 'mdi:broadcast' },
     { id: 'schemes', label: 'Schemes Data', icon: 'mingcute:government-line' },
     { id: 'noc', label: 'NOC Verification', icon: 'mdi:file-certificate-outline' },
+    { id: 'content', label: 'Content Generation', icon: 'mdi:book-edit' },
   ];
 
   // --- Role guard ---
@@ -729,6 +731,13 @@ export default function AdminDashboardPage() {
                       </table>
                    </div>
                 </Card>
+             </motion.div>
+          )}
+
+          {/* ================= CONTENT GENERATION TAB ================= */}
+          {activeTab === 'content' && (
+             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+                <ContentGenerator />
              </motion.div>
           )}
 
