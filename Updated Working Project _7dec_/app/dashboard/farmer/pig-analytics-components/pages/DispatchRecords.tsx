@@ -247,21 +247,18 @@ function DispatchRecords() {
 
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* Batch Selector */}
+
+                        {/* Batch Input (Dropdown → Text Input) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                                placeholder="e.g. BATCH-001"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                            />
                             {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
                         </div>
 

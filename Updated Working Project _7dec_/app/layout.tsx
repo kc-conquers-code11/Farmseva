@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/app/components/Navbar";
-import AccessibilityEntry from "./components/AccessibilityEntry";
+import { Navbar } from "./components/Navbar";
+import { Footer } from "./components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,11 +29,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* fixed navbar upar */}
         <Navbar />
-        {children}
 
-        {/* Accessibility widget (chatbot-style floating button) */}
-        <AccessibilityEntry />
+        {/* yaha se saara page content, header ke neeche se start hoga */}
+        <div className="min-h-screen flex flex-col pt-[118px] md:pt-[126px]">
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </div>
       </body>
     </html>
   );

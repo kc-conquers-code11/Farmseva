@@ -2,28 +2,32 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { usePathname } from 'next/navigation'
 import {
   Search, LayoutDashboard, UserCircle, LogOut, ChevronDown,
   Menu, X, Activity, ClipboardCheck, AlertTriangle, ShieldCheck
 } from 'lucide-react'
 
-import { useSupabaseUser } from '@/hooks/useSupabaseUser'
-import { supabase } from '@/lib/supabaseClient'
+// TODO: yaha apna real hook / supabase import karo
+// import { useSupabaseUser } from '@/hooks/useSupabaseUser'
+// import { supabase } from '@/lib/supabaseClient'
+
+// --- TEMP MOCKS (agar tum baad me replace karna chaho) ---
+const useSupabaseUser = () => {
+  const [user] = useState<any>(null)
+  return { user, loading: false }
+}
+
+const supabase = {
+  auth: {
+    signOut: async () => { console.log('Signed out') }
+  }
+}
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const { user } = useSupabaseUser()
-  const pathname = usePathname()
   const profileRef = useRef<HTMLDivElement>(null)
-
-  // ❗ Login / Register sirf in pages par dikhana:
-  const showAuthButtons =
-    !user &&
-    (pathname === '/' ||
-      pathname.startsWith('/login') ||
-      pathname.startsWith('/register'))
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -48,7 +52,7 @@ export function Navbar() {
   ]
 
   return (
-    <nav className="fixed top-0 w-full z-[80] bg-white shadow-sm font-sans ">
+    <nav className="fixed top-0 w-full z-50 bg-white shadow-sm font-sans">
       {/* Top Header - Logos */}
       <div className="bg-white border-b border-neutral-200">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -132,7 +136,6 @@ export function Navbar() {
             </div>
 
             {user ? (
-              // ✅ user logged in → hamesha naam + sign out
               <div className="relative z-50" ref={profileRef}>
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -155,18 +158,18 @@ export function Navbar() {
                       exit={{ opacity: 0, y: 10 }}
                       className="absolute right-0 top-full mt-2 w-48 bg-white rounded shadow-lg border border-neutral-200 overflow-hidden z-50 text-neutral-800"
                     >
-                      {/* <a
+                      <a
                         href="/dashboard"
                         className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-neutral-100"
                       >
                         <LayoutDashboard size={16} /> Dashboard
-                      </a> */}
-                      {/* <a
+                      </a>
+                      <a
                         href="/profile"
                         className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-neutral-100"
                       >
                         <UserCircle size={16} /> Profile
-                      </a> */}
+                      </a>
                       <button
                         onClick={handleSignOut}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
@@ -178,18 +181,15 @@ export function Navbar() {
                 </AnimatePresence>
               </div>
             ) : (
-              // ❗ sirf Home, /login, /register pe hi buttons dikhane
-              showAuthButtons && (
-                <div className="hidden md:flex items-center gap-2">
-                  <a href="/login" className="text-sm font-medium hover:underline px-2">
-                    Log in
-                  </a>
-                  <span className="text-white/50">|</span>
-                  <a href="/register" className="text-sm font-medium hover:underline px-2">
-                    Register
-                  </a>
-                </div>
-              )
+              <div className="hidden md:flex items-center gap-2">
+                <a href="/login" className="text-sm font-medium hover:underline px-2">
+                  Log in
+                </a>
+                <span className="text-white/50">|</span>
+                <a href="/register" className="text-sm font-medium hover:underline px-2">
+                  Register
+                </a>
+              </div>
             )}
 
             <button
@@ -235,7 +235,6 @@ export function Navbar() {
               ))}
               <div className="border-t border-neutral-200 pt-4 mt-4">
                 {user ? (
-                  // ✅ user logged in → hamesha sign out
                   <button
                     onClick={handleSignOut}
                     className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded w-full"
@@ -243,23 +242,20 @@ export function Navbar() {
                     <LogOut size={16} /> Sign Out
                   </button>
                 ) : (
-                  // ❗ auth buttons sirf selected pages pe
-                  showAuthButtons && (
-                    <div className="grid grid-cols-2 gap-2 px-4">
-                      <a
-                        href="/login"
-                        className="text-center py-2 border border-neutral-300 rounded text-neutral-700 font-medium text-sm"
-                      >
-                        Log In
-                      </a>
-                      <a
-                        href="/register"
-                        className="text-center py-2 bg-[#003c71] text-white rounded font-medium text-sm"
-                      >
-                        Register
-                      </a>
-                    </div>
-                  )
+                  <div className="grid grid-cols-2 gap-2 px-4">
+                    <a
+                      href="/login"
+                      className="text-center py-2 border border-neutral-300 rounded text-neutral-700 font-medium text-sm"
+                    >
+                      Log In
+                    </a>
+                    <a
+                      href="/register"
+                      className="text-center py-2 bg-[#003c71] text-white rounded font-medium text-sm"
+                    >
+                      Register
+                    </a>
+                  </div>
                 )}
               </div>
             </div>

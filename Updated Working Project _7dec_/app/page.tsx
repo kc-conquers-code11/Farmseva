@@ -10,7 +10,6 @@ import {
   Mail, Phone, MapPin, Globe, Search, FileText, Sprout, Tractor,
   Activity, AlertTriangle, BookOpen, ClipboardCheck, Eye
 } from 'lucide-react'
-import { Footer } from '@/app/components/Footer'
 
 // --- MOCKS FOR DEMO PURPOSES (To fix build errors) ---
 const useSupabaseUser = () => {
@@ -343,7 +342,7 @@ export default function LandingPage() {
       <Navbar />
 
       {/* --- 1. HERO SECTION WITH CAROUSEL & QUICK LINKS --- */}
-      <section className="pt-32 md:pt-36">
+      <section className="pt-[20px] md:pt-[100px]">
   <HeroCarousel />
 </section>
 
@@ -500,7 +499,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <Footer />
+
     </div>
   )
 }

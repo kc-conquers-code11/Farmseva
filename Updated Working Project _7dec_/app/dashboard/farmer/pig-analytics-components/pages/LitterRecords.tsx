@@ -12,7 +12,7 @@ function LitterRecords() {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // --- 1. Hardcoded Batches ---
+    // --- 1. Hardcoded Batches --- (dropdown hatane ke baad ab use nahi ho raha, chahe to hata bhi sakte ho)
     const [batches] = useState<Batch[]>([
         { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
         { id: 'BATCH-002', name: 'Batch B - Dec 2024', start_date: '2024-12-01' },
@@ -206,21 +206,18 @@ function LitterRecords() {
 
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* Batch Selector */}
+
+                        {/* Batch Input (Dropdown hata ke simple input field) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                                placeholder="e.g. BATCH-001"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                            />
                             {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
                         </div>
 

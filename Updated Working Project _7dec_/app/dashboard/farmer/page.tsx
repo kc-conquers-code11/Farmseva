@@ -1,29 +1,47 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
+import Papa from "papaparse";
 import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
-import { useRouter, useSearchParams } from "next/navigation";
-
-// Components
-import {Navbar}  from "@/app/components/Navbar";
-import { Footer } from "@/app/components/Footer";
-import Card from "@/app/components/Card";
 import DiseaseAlertsDashboard from "./outbreaks/DiseaseAlertsDashboard";
 import VetList from "./components/VetList";
 import FarmerRequestHistory from "./components/FarmerRequestHistory";
-import GovtSchemesDashboard from "@/app/components/GovtSchemesDashboard"; // Importing the new component
-
-// Hooks & Libs
-import { useSupabaseUser } from "@/hooks/useSupabaseUser";
-import { supabase } from "@/lib/supabaseClient";
 
 // Lucide icons
 import { 
-  TrendingUp, 
-  Calendar, 
+  ChevronDown, 
+  ChevronUp, 
+  ExternalLink, 
+  HelpCircle, 
   Search as SearchIcon, 
-  Filter as FilterIcon 
+  Filter as FilterIcon,
+  History,
+  TrendingUp,
+  Calendar,
+  PiggyBank,
+  Bird,
+  Globe,
+  Building,
+  IndianRupee,
+  Shield,
+  FileCheck,
+  ClipboardList,
+  Users,
+  Home,
+  Bookmark,
+  BookmarkCheck,
+  ChevronRight,
+  Info,
+  Clock,
+  CheckSquare,
+  X,
+  Award,
+  Target,
+  CheckCircle,
+  Clock as ClockIcon,
+  XCircle,
+  ArrowLeft
 } from "lucide-react"; 
 
 import {
@@ -42,6 +60,13 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import { Navbar } from "@/app/components/Navbar";
+
+import Card from "@/app/components/Card";
+import { useSupabaseUser } from "@/hooks/useSupabaseUser";
+import { supabase } from "@/lib/supabaseClient";
 
 // --- Types ---
 type RiskAssessment = {
@@ -64,6 +89,30 @@ type FarmProfile = {
   herd_size: number;
 };
 
+type SchemeData = {
+  "Govt Scheme Name": string;
+  "Scheme Category": string;
+  "Scheme Description": string;
+  "Website Link": string;
+  "Ministry / Department Name"?: string;
+  "Benefits Provided"?: string;
+  "Eligibility Requirements"?: string;
+  "How To Apply"?: string;
+  "Required Documents"?: string;
+  "Application Start Date"?: string;
+  "Last date"?: string;
+  "AI Overview"?: string;
+  "PDF Link"?: string;
+  [key: string]: any;
+};
+
+type AppliedScheme = {
+  schemeName: string;
+  status: 'applied' | 'not-applied' | 'pending';
+  appliedAt: string;
+  updatedAt: string;
+};
+
 export default function FarmerDashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,6 +127,21 @@ export default function FarmerDashboardPage() {
   const [selectedRisk, setSelectedRisk] = useState<RiskAssessment | null>(null);
   const [farmProfile, setFarmProfile] = useState<FarmProfile | null>(null);
   const [loadingRisk, setLoadingRisk] = useState(true);
+
+  // --- State: Schemes Integration ---
+  const SHEET_URL = "https://docs.google.com/spreadsheets/d/11oh6nVyIGXoy9oTfA_UWgAD3JxCvVeO0K4n9ncqVeyw/export?format=csv";
+  const [schemes, setSchemes] = useState<SchemeData[]>([]);
+  const [filteredSchemes, setFilteredSchemes] = useState<SchemeData[]>([]);
+  const [schemeSearchTerm, setSchemeSearchTerm] = useState("");
+  const [selectedAnimalFilter, setSelectedAnimalFilter] = useState("All");
+  const [schemesLoading, setSchemesLoading] = useState(true);
+   
+  // New Scheme States
+  const [schemeView, setSchemeView] = useState<"list" | "detail">("list");
+  const [selectedSchemeDetail, setSelectedSchemeDetail] = useState<SchemeData | null>(null);
+  const [savedSchemes, setSavedSchemes] = useState<string[]>([]);
+  const [appliedSchemes, setAppliedSchemes] = useState<AppliedScheme[]>([]);
+  const [schemeTab, setSchemeTab] = useState<"all" | "saved" | "applied">("all");
 
   // --- State: Vet Request ---
   const [vetForm, setVetForm] = useState({
@@ -118,10 +182,28 @@ export default function FarmerDashboardPage() {
     { key: "vets", label: "FarmSeva Vets", icon: "mdi:stethoscope" },
   ];
 
-  // --- Effects: Schemes Filtering (REMOVED) ---
-
-  // --- Effects: Dashboard General ---
+  // --- Effects: Schemes Fetching & Logic ---
   useEffect(() => {
+    Papa.parse(SHEET_URL, {
+      download: true,
+      header: true,
+      complete: (result) => {
+        const data = result.data.slice(2) as SchemeData[];
+        setSchemes(data);
+        setFilteredSchemes(data);
+        setSchemesLoading(false);
+      },
+      error: (err) => {
+        console.error("Error fetching schemes:", err);
+        setSchemesLoading(false);
+      }
+    });
+
+    const savedApplied = localStorage.getItem('appliedSchemes');
+    if (savedApplied) {
+      setAppliedSchemes(JSON.parse(savedApplied));
+    }
+    
     // Global styles
     const styles = `
       @keyframes slideInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
@@ -147,6 +229,104 @@ export default function FarmerDashboardPage() {
     return () => { document.head.removeChild(styleSheet); };
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('appliedSchemes', JSON.stringify(appliedSchemes));
+  }, [appliedSchemes]);
+
+  // --- Effects: Schemes Filtering ---
+  useEffect(() => {
+    let filtered = schemes;
+    if (selectedAnimalFilter !== "All") {
+      filtered = filtered.filter(scheme => {
+        const schemeName = scheme["Govt Scheme Name"]?.toLowerCase() || "";
+        const schemeDescription = scheme["Scheme Description"]?.toLowerCase() || "";
+        if (selectedAnimalFilter === "Pig") {
+          return schemeName.includes("pig") || schemeName.includes("swine") || schemeDescription.includes("pig") || schemeDescription.includes("swine");
+        }
+        if (selectedAnimalFilter === "Poultry") {
+          return schemeName.includes("poultry") || schemeName.includes("chicken") || schemeName.includes("hen") || schemeDescription.includes("poultry") || schemeDescription.includes("chicken") || schemeDescription.includes("hen");
+        }
+        return true;
+      });
+    }
+    if (schemeSearchTerm) {
+      filtered = filtered.filter(scheme => {
+        const searchLower = schemeSearchTerm.toLowerCase();
+        return (
+          scheme["Govt Scheme Name"]?.toLowerCase().includes(searchLower) ||
+          scheme["Scheme Description"]?.toLowerCase().includes(searchLower) ||
+          scheme["Ministry / Department Name"]?.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+    if (schemeTab === "saved") {
+      filtered = filtered.filter(scheme => savedSchemes.includes(scheme["Govt Scheme Name"]));
+    } else if (schemeTab === "applied") {
+      const appliedNames = appliedSchemes.map(app => app.schemeName);
+      filtered = filtered.filter(scheme => appliedNames.includes(scheme["Govt Scheme Name"]));
+    }
+    setFilteredSchemes(filtered);
+  }, [schemeSearchTerm, selectedAnimalFilter, schemes, savedSchemes, appliedSchemes, schemeTab]);
+
+  const animalFilters = [
+    { id: "All", label: "All Schemes", icon: <Globe size={20} /> },
+    { id: "Pig", label: "Pig Farming", icon: <PiggyBank size={20} /> },
+    { id: "Poultry", label: "Poultry Farming", icon: <Bird size={20} /> }
+  ];
+
+  // --- Scheme Actions ---
+  const handleViewDetails = (scheme: SchemeData) => {
+    setSelectedSchemeDetail(scheme);
+    setSchemeView("detail");
+    window.scrollTo(0, 0);
+  };
+
+  const handleBackToList = () => {
+    setSchemeView("list");
+    setSelectedSchemeDetail(null);
+    window.scrollTo(0, 0);
+  };
+
+  const handleSaveScheme = (schemeId: string) => {
+    let updatedSaved;
+    if (savedSchemes.includes(schemeId)) {
+      updatedSaved = savedSchemes.filter(id => id !== schemeId);
+    } else {
+      updatedSaved = [...savedSchemes, schemeId];
+    }
+    setSavedSchemes(updatedSaved);
+  };
+
+  const handleApplyStatus = (schemeName: string, status: 'applied' | 'not-applied' | 'pending') => {
+    const existingIndex = appliedSchemes.findIndex(app => app.schemeName === schemeName);
+    let updatedApplied;
+    if (existingIndex >= 0) {
+      updatedApplied = [...appliedSchemes];
+      updatedApplied[existingIndex] = {
+        ...updatedApplied[existingIndex],
+        status,
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      updatedApplied = [
+        ...appliedSchemes,
+        {
+          schemeName,
+          status,
+          appliedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+    }
+    setAppliedSchemes(updatedApplied);
+  };
+
+  const getAppliedStatus = (schemeName: string) => {
+    const applied = appliedSchemes.find(app => app.schemeName === schemeName);
+    return applied ? applied.status : null;
+  };
+
+  // --- Effects: Dashboard General ---
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab && tabList.some(t => t.key === tab)) {
@@ -325,7 +505,7 @@ export default function FarmerDashboardPage() {
       <Navbar />
 
       {/* Main Layout Container - Split Screen for Desktop */}
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
         
         {/* === LEFT SIDEBAR VERTICAL TABS === */}
         <aside className="w-full md:w-72 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-x-auto md:overflow-y-auto no-scrollbar md:pr-4 py-4 md:py-8 flex-shrink-0">
@@ -400,12 +580,32 @@ export default function FarmerDashboardPage() {
                 System Status: <span className="text-green-600 font-medium">Operational</span>
               </p>
             </motion.div>
+
+            {/* Contextual Actions Top Right (Optional) */}
+            {activeTab === 'schemes' && (
+                <div className="flex gap-2">
+                    <button className="p-2 bg-white border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"><FilterIcon size={18}/></button>
+                    <button className="p-2 bg-white border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"><SearchIcon size={18}/></button>
+                </div>
+            )}
           </div>
 
           {/* ========== TAB: OVERVIEW ========== */}
           {activeTab === "overview" && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {/* Changed grid to 3 since schemes card removed */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="hover:shadow-lg transition-shadow duration-300 border-none shadow-sm ring-1 ring-neutral-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center border border-green-100">
+                      <Icon icon="mingcute:government-fill" className="w-6 h-6 text-green-600" />
+                    </div>
+                    <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">Active</span>
+                  </div>
+                  <div className="text-3xl font-bold text-neutral-800 mb-1">
+                    {schemes.length > 0 ? schemes.length : "..."}
+                  </div>
+                  <div className="text-sm text-neutral-500 font-medium">Eligible Schemes</div>
+                </Card>
                 
                 <Card className="hover:shadow-lg transition-shadow duration-300 border-none shadow-sm ring-1 ring-neutral-100">
                     <div className="flex items-center justify-between mb-4">
@@ -451,7 +651,7 @@ export default function FarmerDashboardPage() {
               <Card className="border-none shadow-sm ring-1 ring-neutral-100">
                 <div className="flex items-center mb-6">
                   <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                      <Icon icon="mdi:weather-cloudy" className="w-5 h-5 text-blue-600" />
+                     <Icon icon="mdi:weather-cloudy" className="w-5 h-5 text-blue-600" />
                   </div>
                   <h2 className="text-lg font-bold text-neutral-800">Weather Alerts</h2>
                 </div>
@@ -575,7 +775,7 @@ export default function FarmerDashboardPage() {
                     {/* Assessment List Sidebar */}
                     <div className="lg:col-span-4 flex flex-col h-[600px]">
                       <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 px-1">
-                          History Log
+                         History Log
                       </h3>
                       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
                         {riskHistory.map((item) => {
@@ -610,7 +810,7 @@ export default function FarmerDashboardPage() {
 
                     {/* Detailed View */}
                     <div className="lg:col-span-8">
-                        {selectedRisk && (
+                       {selectedRisk && (
                           <Card className="h-full border-none shadow-lg ring-1 ring-neutral-100 p-0 overflow-hidden">
                               <div className="bg-neutral-50 border-b border-neutral-100 p-6 flex justify-between items-center">
                                 <div>
@@ -677,13 +877,13 @@ export default function FarmerDashboardPage() {
 
                                   {farmProfile && (
                                     <div className={`p-5 rounded-xl border mb-8 ${generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).bgColor}`}>
-                                             <div className="flex gap-3">
-                                                <Icon icon="mdi:information-slab-circle" className={`w-6 h-6 flex-shrink-0 ${generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor}`} />
-                                                <div>
-                                                    <p className={`font-bold mb-1 ${generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor}`}>Analysis Summary</p>
-                                                    <p className="text-sm text-neutral-700 leading-relaxed">{generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).text}</p>
-                                                </div>
-                                             </div>
+                                         <div className="flex gap-3">
+                                            <Icon icon="mdi:information-slab-circle" className={`w-6 h-6 flex-shrink-0 ${generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor}`} />
+                                            <div>
+                                                <p className={`font-bold mb-1 ${generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).titleColor}`}>Analysis Summary</p>
+                                                <p className="text-sm text-neutral-700 leading-relaxed">{generateDynamicSummary(calculateOverallRisk(selectedRisk), farmProfile).text}</p>
+                                            </div>
+                                         </div>
                                     </div>
                                   )}
 
@@ -705,7 +905,7 @@ export default function FarmerDashboardPage() {
                                   </div>
                               </div>
                           </Card>
-                        )}
+                       )}
                     </div>
                   </div>
                 </>
@@ -757,7 +957,7 @@ export default function FarmerDashboardPage() {
 
                 <div className="bg-white rounded-3xl p-8 border border-neutral-100 shadow-sm relative overflow-hidden group hover:border-orange-200 transition-colors">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-                      <div className="relative z-10">
+                     <div className="relative z-10">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
                                 <Icon icon="mdi:duck" className="w-7 h-7"/>
@@ -767,7 +967,7 @@ export default function FarmerDashboardPage() {
                         <p className="text-gray-600 leading-relaxed text-lg">
                             {weatherTips ? weatherTips.poultry : "Loading specific advice..."}
                         </p>
-                      </div>
+                     </div>
                 </div>
               </div>
 
@@ -816,7 +1016,7 @@ export default function FarmerDashboardPage() {
             </motion.div>
           )}
 
-          {/* ========== TAB: ANALYTICS ========== */}
+{/* ========== TAB: ANALYTICS ========== */}
           {activeTab === "analytics" && (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="space-y-8">
               <div className="mb-6">
@@ -924,7 +1124,113 @@ export default function FarmerDashboardPage() {
 
           {/* ========== TAB: SCHEMES (INTEGRATED) ========== */}
           {activeTab === "schemes" && (
-            <GovtSchemesDashboard />
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-8">
+              {schemeView === "detail" && selectedSchemeDetail ? (
+                <SchemeDetailPage 
+                  scheme={selectedSchemeDetail} 
+                  onBack={handleBackToList}
+                  isSaved={savedSchemes.includes(selectedSchemeDetail["Govt Scheme Name"])}
+                  onSaveToggle={() => handleSaveScheme(selectedSchemeDetail["Govt Scheme Name"])}
+                  appliedStatus={getAppliedStatus(selectedSchemeDetail["Govt Scheme Name"])}
+                  onApplyStatusChange={(status: any) => handleApplyStatus(selectedSchemeDetail["Govt Scheme Name"], status)}
+                />
+              ) : (
+                <>
+                  {/* Stats Bar */}
+                  <div className="bg-white border border-neutral-200 rounded-3xl shadow-sm overflow-hidden">
+                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-neutral-100">
+                      <div className="p-6 text-center hover:bg-neutral-50 transition-colors">
+                        <div className="text-3xl font-bold text-neutral-900">{schemes.length}</div>
+                        <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1">Active Schemes</div>
+                      </div>
+                      <div className="p-6 text-center hover:bg-neutral-50 transition-colors">
+                        <div className="text-3xl font-bold text-neutral-900">{savedSchemes.length}</div>
+                        <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1">Saved</div>
+                      </div>
+                      <div className="p-6 text-center hover:bg-neutral-50 transition-colors">
+                        <div className="text-3xl font-bold text-neutral-900">{appliedSchemes.filter(app => app.status === 'applied').length}</div>
+                        <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1">Applied</div>
+                      </div>
+                      <div className="p-6 text-center hover:bg-neutral-50 transition-colors">
+                        <div className="text-3xl font-bold text-neutral-900">₹10Cr+</div>
+                        <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mt-1">Total Benefits</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Filter Section */}
+                  <div className="bg-white rounded-3xl shadow-sm p-2 border border-neutral-200">
+                    <div className="flex flex-col lg:flex-row gap-2">
+                      <div className="flex-1 relative">
+                        <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                        <input
+                          type="text"
+                          placeholder="Search schemes..."
+                          value={schemeSearchTerm}
+                          onChange={(e) => setSchemeSearchTerm(e.target.value)}
+                          className="w-full pl-12 pr-4 py-3 bg-transparent border-none focus:ring-0 text-base"
+                        />
+                      </div>
+                      
+                      <div className="h-auto w-px bg-neutral-200 mx-2 hidden lg:block"></div>
+
+                      <div className="lg:w-64 relative">
+                          <FilterIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                          <select
+                            value={selectedAnimalFilter}
+                            onChange={(e) => setSelectedAnimalFilter(e.target.value)}
+                            className="w-full pl-12 pr-4 py-3 bg-transparent border-none focus:ring-0 text-base appearance-none cursor-pointer"
+                          >
+                            {animalFilters.map(filter => (
+                              <option key={filter.id} value={filter.id}>
+                                {filter.label}
+                              </option>
+                            ))}
+                          </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabs within Schemes */}
+                  <div className="flex space-x-2 border-b border-neutral-200 pb-1">
+                    {[{id:'all', label:'All Schemes'}, {id:'saved', label:'Saved'}, {id:'applied', label:'Applied'}].map((t) => (
+                         <button 
+                            key={t.id}
+                            onClick={() => setSchemeTab(t.id as any)} 
+                            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all border-b-2 ${schemeTab === t.id ? "border-black text-black" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}
+                         >
+                            {t.label}
+                         </button>
+                    ))}
+                  </div>
+
+                  {/* Cards Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {!schemesLoading && filteredSchemes.map((scheme, i) => (
+                      <SchemeCard 
+                        key={i} 
+                        scheme={scheme} 
+                        index={i}
+                        onViewDetails={() => handleViewDetails(scheme)}
+                        isSaved={savedSchemes.includes(scheme["Govt Scheme Name"])}
+                        onSaveToggle={() => handleSaveScheme(scheme["Govt Scheme Name"])}
+                        appliedStatus={getAppliedStatus(scheme["Govt Scheme Name"])}
+                      />
+                    ))}
+                  </div>
+
+                  {!schemesLoading && filteredSchemes.length === 0 && (
+                    <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-neutral-300">
+                      <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <SearchIcon className="w-8 h-8 text-neutral-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-neutral-700 mb-2">No schemes found</h3>
+                      <p className="text-neutral-500">Try adjusting your search or filter criteria</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </motion.div>
           )}
 
           {/* ========== TAB: COMMUNITY ========== */}
@@ -955,7 +1261,199 @@ export default function FarmerDashboardPage() {
           )}
         </main>
       </div>
-      <Footer />
+    </div>
+  );
+}
+
+// --- SUB-COMPONENTS ---
+
+// 1. Scheme Card
+function SchemeCard({ scheme, index, onViewDetails, isSaved, onSaveToggle, appliedStatus }: any) {
+  const getAnimalType = () => {
+    const name = scheme["Govt Scheme Name"]?.toLowerCase() || "";
+    const desc = scheme["Scheme Description"]?.toLowerCase() || "";
+    if (name.includes("pig") || desc.includes("pig") || desc.includes("swine")) 
+      return { icon: <PiggyBank size={24} />, label: "Pig Farming", color: "bg-pink-100 text-pink-700" };
+    if (name.includes("poultry") || desc.includes("poultry") || desc.includes("chicken") || desc.includes("hen")) 
+      return { icon: <Bird size={24} />, label: "Poultry Farming", color: "bg-orange-100 text-orange-700" };
+    return { icon: <Globe size={24} />, label: "General", color: "bg-blue-100 text-blue-700" };
+  };
+
+  const getStatusBadge = () => {
+    switch(appliedStatus) {
+      case 'applied':
+        return <div className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-bold border border-green-200">Applied</div>;
+      case 'not-applied':
+        return <div className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-bold border border-red-200">Rejected</div>;
+      case 'pending':
+        return <div className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold border border-amber-200">Pending</div>;
+      default: return null;
+    }
+  };
+
+  const animal = getAnimalType();
+  const amount = scheme["Benefits Provided"]?.match(/₹[\d,]+|Up to [\d,]+|Rs\.[\d,]+/)?.[0] || "Check Details";
+  const ministry = scheme["Ministry / Department Name"] || "Govt. of India";
+
+  return (
+    <div 
+      className="bg-white rounded-2xl border border-neutral-200 hover:border-neutral-300 hover:shadow-lg transition-all duration-300 flex flex-col h-full group overflow-hidden"
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <div className="p-6 flex flex-col flex-grow">
+        <div className="flex justify-between items-start mb-4">
+          <div className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold ${animal.color}`}>
+             {animal.icon} {animal.label}
+          </div>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onSaveToggle(); }}
+            className="text-neutral-400 hover:text-neutral-900 transition-colors"
+          >
+            {isSaved ? <BookmarkCheck size={22} className="text-black" /> : <Bookmark size={22} />}
+          </button>
+        </div>
+
+        <h3 className="text-lg font-bold text-neutral-900 mb-2 leading-tight line-clamp-2 min-h-[3.5rem]">
+          {scheme["Govt Scheme Name"]}
+        </h3>
+
+        <div className="flex items-center gap-2 text-xs text-neutral-500 mb-4">
+           <Building size={14} /> <span className="truncate max-w-[200px]">{ministry}</span>
+        </div>
+
+        <p className="text-sm text-neutral-600 leading-relaxed mb-6 line-clamp-3 flex-grow">
+          {scheme["Scheme Description"]}
+        </p>
+
+        <div className="border-t border-neutral-100 pt-4 mt-auto">
+           <div className="flex justify-between items-center mb-4">
+              <div>
+                 <p className="text-xs text-neutral-400 font-bold uppercase">Benefit</p>
+                 <p className="text-base font-bold text-neutral-900">{amount}</p>
+              </div>
+              {getStatusBadge()}
+           </div>
+           
+           <button 
+            onClick={onViewDetails}
+            className="w-full py-2.5 bg-neutral-900 hover:bg-black text-white text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
+           >
+            View Details <ChevronRight size={16} />
+           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 2. Scheme Detail Page
+function SchemeDetailPage({ scheme, onBack, isSaved, onSaveToggle, appliedStatus, onApplyStatusChange }: any) {
+  const getAnimalType = () => {
+    const name = scheme["Govt Scheme Name"]?.toLowerCase() || "";
+    if (name.includes("pig")) return { icon: <PiggyBank size={32} />, label: "Pig Farming Scheme" };
+    if (name.includes("poultry")) return { icon: <Bird size={32} />, label: "Poultry Farming Scheme" };
+    return { icon: <Globe size={32} />, label: "General Scheme" };
+  };
+
+  const parseBenefits = (benefitsText: string) => {
+    if (!benefitsText) return [];
+    const items = benefitsText.split(/(?:\d+\.\s)/).filter(item => item.trim());
+    return items.length <= 1 ? benefitsText.split(/\.\s+/).filter(item => item.trim()) : items;
+  };
+
+  const animal = getAnimalType();
+  const ministry = scheme["Ministry / Department Name"] || "Government of India";
+  const benefitsList = parseBenefits(scheme["Benefits Provided"]);
+
+  return (
+    <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden animate-fadeIn">
+      {/* Detail Header */}
+      <div className="border-b border-neutral-200 p-6 flex justify-between items-center bg-white sticky top-0 z-20">
+        <button onClick={onBack} className="flex items-center gap-2 text-neutral-600 hover:text-black font-medium transition-colors">
+          <ArrowLeft size={20} /> Back to List
+        </button>
+        <div className="flex gap-3">
+             <button onClick={onSaveToggle} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border transition-all ${isSaved ? "bg-black text-white border-black" : "bg-white border-neutral-200 hover:bg-neutral-50"}`}>
+                {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />} {isSaved ? "Saved" : "Save"}
+             </button>
+             <a href={scheme["Website Link"]} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-colors">
+                Apply Now <ExternalLink size={18} />
+             </a>
+        </div>
+      </div>
+
+      <div className="p-8 lg:p-12">
+         <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-4 mb-6">
+                <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center text-neutral-700">
+                    {animal.icon}
+                </div>
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 leading-tight mb-1">{scheme["Govt Scheme Name"]}</h1>
+                    <div className="flex items-center gap-2 text-neutral-500">
+                        <Building size={16} /> {ministry}
+                    </div>
+                </div>
+            </div>
+
+            <p className="text-lg text-neutral-700 leading-relaxed mb-10 border-l-4 border-green-500 pl-4 bg-green-50/50 p-4 rounded-r-lg">
+                {scheme["Scheme Description"]}
+            </p>
+
+            <div className="grid md:grid-cols-3 gap-10">
+                <div className="md:col-span-2 space-y-10">
+                    <section>
+                        <h2 className="text-xl font-bold text-neutral-900 mb-4 flex items-center gap-2"><IndianRupee className="text-green-600"/> Benefits</h2>
+                        <ul className="space-y-3">
+                            {benefitsList.map((b: string, i: number) => (
+                                <li key={i} className="flex gap-3 text-neutral-700 leading-relaxed">
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-neutral-400 mt-2.5"></span>
+                                    <span>{b}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2 className="text-xl font-bold text-neutral-900 mb-4 flex items-center gap-2"><Users className="text-blue-600"/> Eligibility</h2>
+                        <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100 text-neutral-700 leading-relaxed whitespace-pre-line">
+                            {scheme["Eligibility Requirements"]}
+                        </div>
+                    </section>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="bg-neutral-50 rounded-2xl p-6 border border-neutral-200">
+                        <h3 className="font-bold text-neutral-900 mb-4">Application Status</h3>
+                        <div className="space-y-2">
+                             {['applied', 'pending', 'not-applied'].map((status) => (
+                                <button 
+                                    key={status}
+                                    onClick={() => onApplyStatusChange(status)}
+                                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${appliedStatus === status ? 'bg-white border-black shadow-sm' : 'border-transparent hover:bg-neutral-100'}`}
+                                >
+                                    <span className="capitalize text-sm font-medium text-neutral-700">{status.replace('-', ' ')}</span>
+                                    {appliedStatus === status && <CheckCircle size={16} className="text-green-600"/>}
+                                </button>
+                             ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-50 rounded-2xl p-6 border border-neutral-200">
+                        <h3 className="font-bold text-neutral-900 mb-4">Required Documents</h3>
+                        <div className="text-sm text-neutral-600 space-y-2">
+                            {scheme["Required Documents"]?.split(',').map((doc:string, i:number) => (
+                                <div key={i} className="flex items-start gap-2">
+                                    <FileCheck size={16} className="text-neutral-400 mt-0.5 flex-shrink-0"/>
+                                    <span>{doc.trim()}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+         </div>
+      </div>
     </div>
   );
 }

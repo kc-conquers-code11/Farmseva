@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient'; 
+import { supabase } from '../lib/supabaseClient';
 
 // Define Batch Interface
 interface Batch {
@@ -11,7 +11,7 @@ interface Batch {
 function DailyFeedWeight() {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    
+
     // --- UPDATED: Hardcoded Batches ---
     const [batches, setBatches] = useState<Batch[]>([
         { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
@@ -19,7 +19,7 @@ function DailyFeedWeight() {
         { id: 'BATCH-003', name: 'Batch C - Jan 2025', start_date: '2025-01-01' },
         { id: 'BATCH-004', name: 'Batch D - Feb 2025', start_date: '2025-02-01' },
     ]);
-    
+
     // Form State
     const [formData, setFormData] = useState({
         batchId: '', // Required by DB
@@ -46,8 +46,6 @@ function DailyFeedWeight() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
-            // A. Fetch Batches (REMOVED - Using Hardcoded)
-
             // B. Fetch Pig Entries (The Table Data)
             const { data: entryData, error } = await supabase
                 .from('daily_pig_entries')
@@ -91,7 +89,7 @@ function DailyFeedWeight() {
 
     const calculateWeightDifference = () => {
         const avgWeight = calculateAverageWeight();
-        return (avgWeight - formData.standardWeight) * 1000; 
+        return (avgWeight - formData.standardWeight) * 1000;
     };
 
     const calculateTotalLiveWeight = () => {
@@ -131,18 +129,18 @@ function DailyFeedWeight() {
                 user_id: user.id,
                 batch_id: formData.batchId,
                 entry_date: formData.date,
-                
+
                 opening_pigs: formData.openingPigs,
                 feed_given: formData.feedGiven,
                 leftover_feed: formData.leftoverFeed,
                 feed_eaten: calculateFeedEaten(),
-                
+
                 pigs_weighed: formData.pigsWeighed,
                 total_weight: formData.totalSampleWeight,
                 standard_weight: formData.standardWeight,
                 average_weight: calculateAverageWeight(),
                 weight_diff_grams: calculateWeightDifference(),
-                
+
                 feed_per_pig_grams: calculateFeedPerPig(),
                 remarks: formData.remarks
             };
@@ -183,7 +181,7 @@ function DailyFeedWeight() {
                 .from('daily_pig_entries')
                 .delete()
                 .eq('id', id);
-            
+
             if (!error) {
                 setRecords(prev => prev.filter(r => r.id !== id));
             }
@@ -243,21 +241,18 @@ function DailyFeedWeight() {
 
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* BATCH SELECTOR (Crucial for DB) */}
+
+                        {/* BATCH INPUT (Dropdown → Text Input) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                                placeholder="e.g. BATCH-001"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose a Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                            />
                             {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
                         </div>
 

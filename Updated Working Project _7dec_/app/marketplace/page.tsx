@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
-import { Navbar } from "@/app/components/Navbar";
-import { Footer } from "@/app/components/Footer";
+import Navbar from "@/app/components/Navbar";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -346,7 +345,7 @@ export default function FarmerMarketplacePage() {
     <div className="min-h-screen bg-neutral-50 font-sans">
       <Navbar />
 
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
         
         {/* === SIDEBAR (FILTERS & ACTIONS) === */}
         <aside className="w-full md:w-80 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-y-auto no-scrollbar p-6 flex-shrink-0">
@@ -720,7 +719,6 @@ export default function FarmerMarketplacePage() {
           </motion.div>
         )}
       </AnimatePresence>
-      <Footer />
     </div>
   );
 }

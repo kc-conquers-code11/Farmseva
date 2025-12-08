@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Leaf, Mail, Lock, User, Phone, Briefcase, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { Navbar } from "@/app/components/Navbar";
-import { Footer } from "@/app/components/Footer";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -67,10 +65,8 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white font-sans text-neutral-800">
-      <Navbar />
+    <div className="min-h-screen flex bg-white font-sans text-neutral-800">
       
-      <div className="flex flex-1 pt-32">
       {/* Left Panel - Visuals */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-neutral-900 overflow-hidden">
         <div className="absolute inset-0">
@@ -285,8 +281,6 @@ export default function RegisterPage() {
 
         </motion.div>
       </div>
-      </div>
-      <Footer />
     </div>
   );
 }

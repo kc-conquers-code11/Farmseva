@@ -223,20 +223,16 @@ function DailyPigEntry() {
                         <div className="form-grid">
                             <div className="form-group">
                                 <label className="form-label required">Batch ID</label>
-                                <select
+                                {/* 🔁 Dropdown hata ke simple input field */}
+                                <input
+                                    type="text"
                                     name="batchId"
                                     value={formData.batchId}
                                     onChange={handleInputChange}
-                                    className="form-select"
+                                    className="form-input"
+                                    placeholder="e.g. BATCH-001"
                                     required
-                                >
-                                    <option value="">Select Batch</option>
-                                    {batches.map(batch => (
-                                        <option key={batch.id} value={batch.id}>
-                                            {batch.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
                             <div className="form-group">
@@ -514,7 +510,7 @@ function DailyPigEntry() {
                 </div>
             </form>
 
-            {/* --- NEW: RECORDS LIST AT THE BOTTOM --- */}
+            {/* --- RECORDS LIST AT THE BOTTOM --- */}
             {records.length > 0 && (
                 <div className="card" style={{ marginTop: '2rem' }}>
                     <div className="card-header">

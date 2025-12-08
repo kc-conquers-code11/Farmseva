@@ -2,12 +2,6 @@ import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 // Define Types
-interface Batch {
-    id: string;
-    name: string;
-    start_date: string;
-}
-
 interface ServiceRecord {
     id: string;
     batchId: string;
@@ -40,14 +34,6 @@ function ServiceRecords() {
     const [records, setRecords] = useState<ServiceRecord[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // --- 1. Hardcoded Batches ---
-    const [batches] = useState<Batch[]>([
-        { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
-        { id: 'BATCH-002', name: 'Batch B - Dec 2024', start_date: '2024-12-01' },
-        { id: 'BATCH-003', name: 'Batch C - Jan 2025', start_date: '2025-01-01' },
-        { id: 'BATCH-004', name: 'Batch D - Feb 2025', start_date: '2025-02-01' },
-    ]);
-
     const [formData, setFormData] = useState<FormData>({
         batchId: '',
         sowId: '',
@@ -62,7 +48,7 @@ function ServiceRecords() {
     const [errors, setErrors] = useState<FormErrors>({});
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    // --- 2. Fetch Records on Mount ---
+    // --- Fetch Records on Mount ---
     useEffect(() => {
         fetchRecords();
     }, []);
@@ -82,7 +68,7 @@ function ServiceRecords() {
                 console.error('Error fetching service records:', error);
             } else if (data) {
                 // Map snake_case (DB) to camelCase (UI)
-                const formatted = data.map(item => ({
+                const formatted = data.map((item: any) => ({
                     id: item.id,
                     batchId: item.batch_id,
                     sowId: item.sow_id,
@@ -110,7 +96,7 @@ function ServiceRecords() {
     // --- Validation ---
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
-        if (!formData.batchId) newErrors.batchId = 'Batch is required';
+        if (!formData.batchId.trim()) newErrors.batchId = 'Batch is required';
         if (!formData.sowId.trim()) newErrors.sowId = 'Sow ID is required';
         if (!formData.boarId.trim()) newErrors.boarId = 'Boar ID is required';
         if (!formData.serviceDate) newErrors.serviceDate = 'Service Date is required';
@@ -121,7 +107,7 @@ function ServiceRecords() {
         return Object.keys(newErrors).length === 0;
     };
 
-    // --- 3. Handle Submit ---
+    // --- Handle Submit ---
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!validateForm()) return;
@@ -174,7 +160,7 @@ function ServiceRecords() {
         }
     };
 
-    // --- 4. Handle Delete ---
+    // --- Handle Delete ---
     const handleDelete = async (id: string) => {
         if (confirm('Delete this record?')) {
             const { error } = await supabase
@@ -220,7 +206,7 @@ function ServiceRecords() {
         setEditingId(null);
     };
 
-    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         setFormData(prev => ({
             ...prev,
@@ -244,22 +230,21 @@ function ServiceRecords() {
 
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* Batch Selector */}
+
+                        {/* Batch Input Field (NO DROPDOWN) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
-                            {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
+                                placeholder="Enter Batch ID (e.g. BATCH-001)"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                            />
+                            {errors.batchId && (
+                                <span className="form-error">⚠ {errors.batchId}</span>
+                            )}
                         </div>
 
                         {/* Mating Details Section */}
@@ -269,47 +254,98 @@ function ServiceRecords() {
                             <div className="form-grid">
                                 <div className="form-group">
                                     <label className="form-label required">Sow ID</label>
-                                    <input type="text" name="sowId" className={`form-input ${errors.sowId ? 'error' : ''}`} placeholder="SOW-001" value={formData.sowId} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="sowId"
+                                        className={`form-input ${errors.sowId ? 'error' : ''}`}
+                                        placeholder="SOW-001"
+                                        value={formData.sowId}
+                                        onChange={handleChange}
+                                    />
                                     {errors.sowId && <span className="form-error">⚠ {errors.sowId}</span>}
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label required">Boar ID</label>
-                                    <input type="text" name="boarId" className={`form-input ${errors.boarId ? 'error' : ''}`} placeholder="BOAR-001" value={formData.boarId} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="boarId"
+                                        className={`form-input ${errors.boarId ? 'error' : ''}`}
+                                        placeholder="BOAR-001"
+                                        value={formData.boarId}
+                                        onChange={handleChange}
+                                    />
                                     {errors.boarId && <span className="form-error">⚠ {errors.boarId}</span>}
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label required">Service Date</label>
-                                    <input type="date" name="serviceDate" className={`form-input ${errors.serviceDate ? 'error' : ''}`} value={formData.serviceDate} onChange={handleChange} />
+                                    <input
+                                        type="date"
+                                        name="serviceDate"
+                                        className={`form-input ${errors.serviceDate ? 'error' : ''}`}
+                                        value={formData.serviceDate}
+                                        onChange={handleChange}
+                                    />
                                     {errors.serviceDate && <span className="form-error">⚠ {errors.serviceDate}</span>}
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Last Weaned Date</label>
-                                    <input type="date" name="lastWeanedDate" className="form-input" value={formData.lastWeanedDate} onChange={handleChange} />
+                                    <input
+                                        type="date"
+                                        name="lastWeanedDate"
+                                        className="form-input"
+                                        value={formData.lastWeanedDate}
+                                        onChange={handleChange}
+                                    />
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Parity</label>
-                                    <input type="number" name="parity" className={`form-input ${errors.parity ? 'error' : ''}`} min="0" value={formData.parity} onChange={handleChange} />
+                                    <input
+                                        type="number"
+                                        name="parity"
+                                        className={`form-input ${errors.parity ? 'error' : ''}`}
+                                        min="0"
+                                        value={formData.parity}
+                                        onChange={handleChange}
+                                    />
                                     {errors.parity && <span className="form-error">⚠ {errors.parity}</span>}
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Service Number</label>
-                                    <input type="number" name="serviceNumber" className={`form-input ${errors.serviceNumber ? 'error' : ''}`} min="1" value={formData.serviceNumber} onChange={handleChange} />
+                                    <input
+                                        type="number"
+                                        name="serviceNumber"
+                                        className={`form-input ${errors.serviceNumber ? 'error' : ''}`}
+                                        min="1"
+                                        value={formData.serviceNumber}
+                                        onChange={handleChange}
+                                    />
                                     {errors.serviceNumber && <span className="form-error">⚠ {errors.serviceNumber}</span>}
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Expected Farrowing</label>
-                                    <input type="text" className="form-input" value={calculateExpectedFarrowingDate(formData.serviceDate)} disabled />
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={calculateExpectedFarrowingDate(formData.serviceDate)}
+                                        disabled
+                                    />
                                 </div>
 
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                     <label className="form-label">Remarks</label>
-                                    <textarea name="remarks" className="form-textarea" placeholder="Any additional notes..." value={formData.remarks} onChange={handleChange} />
+                                    <textarea
+                                        name="remarks"
+                                        className="form-textarea"
+                                        placeholder="Any additional notes..."
+                                        value={formData.remarks}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -318,7 +354,11 @@ function ServiceRecords() {
                             <button type="submit" className="btn btn-primary" disabled={loading}>
                                 {loading ? 'Saving...' : (editingId ? '✓ Update Record' : '+ Add Record')}
                             </button>
-                            {editingId && <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>}
+                            {editingId && (
+                                <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                                    Cancel
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>
@@ -338,6 +378,7 @@ function ServiceRecords() {
                         <table className="table">
                             <thead>
                                 <tr>
+                                    <th>Batch</th>
                                     <th>Sow ID</th>
                                     <th>Boar ID</th>
                                     <th>Service Date</th>
@@ -352,18 +393,41 @@ function ServiceRecords() {
                             <tbody>
                                 {records.map(record => (
                                     <tr key={record.id}>
+                                        <td>{record.batchId || '-'}</td>
                                         <td><strong>{record.sowId}</strong></td>
                                         <td>{record.boarId}</td>
                                         <td>{new Date(record.serviceDate).toLocaleDateString()}</td>
                                         <td>{record.lastWeanedDate ? new Date(record.lastWeanedDate).toLocaleDateString() : '-'}</td>
                                         <td>{record.parity}</td>
                                         <td>{record.serviceNumber}</td>
-                                        <td><span className="badge badge-primary" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', padding: '4px 8px', borderRadius: '4px' }}>{new Date(record.expectedFarrowingDate).toLocaleDateString()}</span></td>
+                                        <td>
+                                            <span
+                                                className="badge badge-primary"
+                                                style={{
+                                                    backgroundColor: '#e3f2fd',
+                                                    color: '#0d47a1',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px'
+                                                }}
+                                            >
+                                                {new Date(record.expectedFarrowingDate).toLocaleDateString()}
+                                            </span>
+                                        </td>
                                         <td>{record.remarks || '-'}</td>
                                         <td>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(record)}>✏️</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(record.id)}>🗑️</button>
+                                                <button
+                                                    className="btn btn-sm btn-secondary"
+                                                    onClick={() => handleEdit(record)}
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-danger"
+                                                    onClick={() => handleDelete(record.id)}
+                                                >
+                                                    🗑️
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

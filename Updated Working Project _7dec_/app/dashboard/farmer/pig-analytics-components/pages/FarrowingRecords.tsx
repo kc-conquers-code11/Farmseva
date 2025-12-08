@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
-// Define Batch Interface
-interface Batch {
-    id: string;
-    name: string;
-    start_date: string;
-}
+// Define Batch Interface (ab use nahi ho raha, chahe to hata bhi sakte ho)
+// interface Batch {
+//     id: string;
+//     name: string;
+//     start_date: string;
+// }
 
 function FarrowingRecords() {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // --- 1. Hardcoded Batches ---
-    const [batches] = useState<Batch[]>([
-        { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
-        { id: 'BATCH-002', name: 'Batch B - Dec 2024', start_date: '2024-12-01' },
-        { id: 'BATCH-003', name: 'Batch C - Jan 2025', start_date: '2025-01-01' },
-        { id: 'BATCH-004', name: 'Batch D - Feb 2025', start_date: '2025-02-01' },
-    ]);
+    // --- 1. Hardcoded Batches --- (DROPDOWN HATANE KE LIYE HATA DIYA)
+    // const [batches] = useState<Batch[]>([
+    //     { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
+    //     { id: 'BATCH-002', name: 'Batch B - Dec 2024', start_date: '2024-12-01' },
+    //     { id: 'BATCH-003', name: 'Batch C - Jan 2025', start_date: '2025-01-01' },
+    //     { id: 'BATCH-004', name: 'Batch D - Feb 2025', start_date: '2025-02-01' },
+    // ]);
 
     const [formData, setFormData] = useState({
         batchId: '', // Added Batch ID
@@ -214,9 +214,9 @@ function FarrowingRecords() {
 
             // Auto-calculate totalBorn when live, stillborn, or mummified changes
             if (['liveBorn', 'stillborn', 'mummified'].includes(name)) {
-                updated.totalBorn = 
-                    (name === 'liveBorn' ? Number(newValue) : prev.liveBorn) + 
-                    (name === 'stillborn' ? Number(newValue) : prev.stillborn) + 
+                updated.totalBorn =
+                    (name === 'liveBorn' ? Number(newValue) : prev.liveBorn) +
+                    (name === 'stillborn' ? Number(newValue) : prev.stillborn) +
                     (name === 'mummified' ? Number(newValue) : prev.mummified);
             }
 
@@ -239,21 +239,18 @@ function FarrowingRecords() {
 
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* Batch Selector */}
+
+                        {/* Batch Input (Dropdown hata ke simple input) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                                placeholder="e.g. BATCH-001"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                            />
                             {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
                         </div>
 

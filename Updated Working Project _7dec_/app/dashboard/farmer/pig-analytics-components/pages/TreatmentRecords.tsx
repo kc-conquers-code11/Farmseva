@@ -11,7 +11,7 @@ interface Batch {
 function TreatmentRecords() {
     const [records, setRecords] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    
+
     // --- 1. Hardcoded Batches (Matching Feed Page) ---
     const [batches] = useState<Batch[]>([
         { id: 'BATCH-001', name: 'Batch A - Nov 2024', start_date: '2024-11-01' },
@@ -32,7 +32,7 @@ function TreatmentRecords() {
         treatedBy: '',
         remarks: ''
     });
-    
+
     const [errors, setErrors] = useState<any>({});
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -91,13 +91,13 @@ function TreatmentRecords() {
     // --- 3. Handle Submit ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Validation Check
         if (!validateForm()) {
             alert("Please fill in all required fields."); // Visual feedback if validation fails
             return;
         }
-        
+
         setLoading(true);
 
         try {
@@ -216,21 +216,18 @@ function TreatmentRecords() {
                 </div>
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
-                        
-                        {/* Batch Selector */}
+
+                        {/* Batch Input (Dropdown → Input) */}
                         <div className="form-group mb-4">
-                            <label className="form-label required">Select Batch</label>
-                            <select 
-                                name="batchId" 
-                                value={formData.batchId} 
+                            <label className="form-label required">Batch ID</label>
+                            <input
+                                type="text"
+                                name="batchId"
+                                className={`form-input ${errors.batchId ? 'error' : ''}`}
+                                placeholder="e.g. BATCH-001"
+                                value={formData.batchId}
                                 onChange={handleChange}
-                                className={`form-select ${errors.batchId ? 'error' : ''}`}
-                            >
-                                <option value="">-- Choose Batch --</option>
-                                {batches.map(b => (
-                                    <option key={b.id} value={b.id}>{b.name}</option>
-                                ))}
-                            </select>
+                            />
                             {errors.batchId && <span className="form-error">⚠ {errors.batchId}</span>}
                         </div>
 
@@ -239,39 +236,98 @@ function TreatmentRecords() {
                             <div className="form-grid">
                                 <div className="form-group">
                                     <label className="form-label required">Date</label>
-                                    <input type="date" name="date" className={`form-input ${errors.date ? 'error' : ''}`} value={formData.date} onChange={handleChange} />
+                                    <input
+                                        type="date"
+                                        name="date"
+                                        className={`form-input ${errors.date ? 'error' : ''}`}
+                                        value={formData.date}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label required">Pen No.</label>
-                                    <input type="text" name="penNo" className={`form-input ${errors.penNo ? 'error' : ''}`} placeholder="e.g. A1" value={formData.penNo} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="penNo"
+                                        className={`form-input ${errors.penNo ? 'error' : ''}`}
+                                        placeholder="e.g. A1"
+                                        value={formData.penNo}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label required">Pig ID</label>
-                                    <input type="text" name="pigId" className={`form-input ${errors.pigId ? 'error' : ''}`} placeholder="e.g. 001" value={formData.pigId} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="pigId"
+                                        className={`form-input ${errors.pigId ? 'error' : ''}`}
+                                        placeholder="e.g. 001"
+                                        value={formData.pigId}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label required">Medicine</label>
-                                    <input type="text" name="medicineGiven" className={`form-input ${errors.medicineGiven ? 'error' : ''}`} placeholder="e.g. Iron" value={formData.medicineGiven} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="medicineGiven"
+                                        className={`form-input ${errors.medicineGiven ? 'error' : ''}`}
+                                        placeholder="e.g. Iron"
+                                        value={formData.medicineGiven}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Dose</label>
-                                    <input type="text" name="dose" className="form-input" placeholder="e.g. 2ml" value={formData.dose} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="dose"
+                                        className="form-input"
+                                        placeholder="e.g. 2ml"
+                                        value={formData.dose}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Route</label>
-                                    <input type="text" name="route" className="form-input" placeholder="e.g. IM" value={formData.route} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="route"
+                                        className="form-input"
+                                        placeholder="e.g. IM"
+                                        value={formData.route}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Reason</label>
-                                    <input type="text" name="reason" className="form-input" placeholder="e.g. Weakness" value={formData.reason} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="reason"
+                                        className="form-input"
+                                        placeholder="e.g. Weakness"
+                                        value={formData.reason}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Treated By</label>
-                                    <input type="text" name="treatedBy" className="form-input" value={formData.treatedBy} onChange={handleChange} />
+                                    <input
+                                        type="text"
+                                        name="treatedBy"
+                                        className="form-input"
+                                        value={formData.treatedBy}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                     <label className="form-label">Remarks</label>
-                                    <textarea name="remarks" className="form-textarea" value={formData.remarks} onChange={handleChange} />
+                                    <textarea
+                                        name="remarks"
+                                        className="form-textarea"
+                                        value={formData.remarks}
+                                        onChange={handleChange}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -280,7 +336,15 @@ function TreatmentRecords() {
                             <button type="submit" className="btn btn-primary" disabled={loading}>
                                 {loading ? 'Saving...' : (editingId ? '✓ Update' : '+ Add Record')}
                             </button>
-                            {editingId && <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancel</button>}
+                            {editingId && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={resetForm}
+                                >
+                                    Cancel
+                                </button>
+                            )}
                         </div>
                     </form>
                 </div>
@@ -315,13 +379,35 @@ function TreatmentRecords() {
                                         <td><strong>{new Date(record.date).toLocaleDateString()}</strong></td>
                                         <td>{record.penNo}</td>
                                         <td>{record.pigId}</td>
-                                        <td><span className="badge badge-primary" style={{ backgroundColor: '#e3f2fd', color: '#0d47a1', padding: '4px 8px', borderRadius: '4px' }}>{record.medicineGiven}</span></td>
+                                        <td>
+                                            <span
+                                                className="badge badge-primary"
+                                                style={{
+                                                    backgroundColor: '#e3f2fd',
+                                                    color: '#0d47a1',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px'
+                                                }}
+                                            >
+                                                {record.medicineGiven}
+                                            </span>
+                                        </td>
                                         <td>{record.dose || '-'}</td>
                                         <td>{record.reason || '-'}</td>
                                         <td>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(record)}>✏️</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(record.id)}>🗑️</button>
+                                                <button
+                                                    className="btn btn-sm btn-secondary"
+                                                    onClick={() => handleEdit(record)}
+                                                >
+                                                    ✏️
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-danger"
+                                                    onClick={() => handleDelete(record.id)}
+                                                >
+                                                    🗑️
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

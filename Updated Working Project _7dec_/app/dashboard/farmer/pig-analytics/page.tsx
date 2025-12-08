@@ -67,7 +67,7 @@ export default function PigAnalyticsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-pink-50 to-gray-50 pt-[118px] md:pt-[126px]">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-pink-50 to-gray-50">
             {/* Enhanced Header with Gradient */}
             <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
