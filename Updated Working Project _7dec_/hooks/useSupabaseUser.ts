@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type SupabaseUser = {
   user_metadata: any;
@@ -14,6 +14,7 @@ type SupabaseUser = {
 
 export function useSupabaseUser() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +26,7 @@ export function useSupabaseUser() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (!user) {
+      if (!user && pathname !== '/register' && pathname !== '/login' && pathname !== '/') {
         setUser(null);
         setLoading(false);
         // not logged in → login page
@@ -65,7 +66,7 @@ setUser({
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const u = session?.user;
-        if (!u) {
+        if (!u && pathname !== '/register' && pathname !== '/login' && pathname !== '/') {
           setUser(null);
           router.push("/login");
         }
@@ -75,7 +76,7 @@ setUser({
     return () => {
       subscription?.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, pathname]);
 
   return { user, loading };
 }

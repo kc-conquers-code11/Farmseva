@@ -13,7 +13,8 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { useSupabaseUser } from '@/hooks/useSupabaseUser'
-import Navbar from '@/app/components/Navbar' // Ensure Navbar is imported
+import { Navbar } from '@/app/components/Navbar' // Ensure Navbar is imported
+import { Footer } from '@/app/components/Footer'
 
 // --- Types ---
 type PostType = 'update' | 'question' | 'alert'
@@ -421,7 +422,7 @@ export default function CommunityPage() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-20 px-4 md:px-8 gap-8">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32 px-4 md:px-8 gap-8">
         
         {/* === LEFT SIDEBAR (Navigation) === */}
         <div className="hidden md:block w-72 shrink-0 sticky top-24 self-start">
@@ -718,6 +719,7 @@ export default function CommunityPage() {
         </div>
 
       </div>
+      <Footer />
     </div>
   )
 }

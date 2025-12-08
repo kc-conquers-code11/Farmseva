@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, BarChart3, Activity } from 'lucide-react';
+import { Navbar } from '@/app/components/Navbar';
 import { AppProvider } from '../poultry-analytics-components/context/AppContext';
+import { Footer } from '@/app/components/Footer';
 
 // Import all page components
 import Dashboard from '../poultry-analytics-components/pages/Dashboard';
@@ -61,7 +63,8 @@ export default function PoultryAnalyticsPage() {
 
     return (
         <AppProvider>
-            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50 to-gray-50">
+            <Navbar />
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50 to-gray-50 pt-[118px] md:pt-[126px]">
                 {/* Enhanced Header with Gradient */}
                 <div className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -281,6 +284,7 @@ export default function PoultryAnalyticsPage() {
                     }
                 `}</style>
             </div>
+            <Footer />
         </AppProvider>
     );
 }

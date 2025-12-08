@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { motion, AnimatePresence } from "framer-motion";
 
-import Navbar from "@/app/components/Navbar";
+import { Navbar } from "@/app/components/Navbar";
+import { Footer } from "@/app/components/Footer";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -192,7 +193,7 @@ export default function FarmerRiskFormPage() {
     <div className="min-h-screen bg-neutral-50 font-sans">
       <Navbar />
 
-      <div className="pt-20 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pt-32 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -627,6 +628,7 @@ export default function FarmerRiskFormPage() {
           </main>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

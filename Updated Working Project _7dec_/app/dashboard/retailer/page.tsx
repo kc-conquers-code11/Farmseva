@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Navbar from "@/app/components/Navbar";
+import { usePathname } from "next/navigation";
+import { Navbar } from "@/app/components/Navbar";
+import { Footer } from "@/app/components/Footer";
 import { Icon } from "@iconify/react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -28,6 +30,7 @@ type Product = {
 };
 
 export default function RetailerDashboardPage() {
+  const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,7 @@ export default function RetailerDashboardPage() {
     async function init() {
       const { data } = await supabase.auth.getUser();
 
-      if (!data.user) {
+      if (!data.user && pathname !== '/register' && pathname !== '/login') {
         window.location.href = "/login";
         return;
       }
@@ -101,7 +104,7 @@ export default function RetailerDashboardPage() {
     <div className="min-h-screen bg-neutral-50 font-sans">
       <Navbar />
 
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32">
         
         {/* === LEFT SIDEBAR (Filters) === */}
         <aside className="w-full md:w-80 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-y-auto no-scrollbar p-6 flex-shrink-0">
@@ -352,6 +355,7 @@ export default function RetailerDashboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      <Footer />
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const HERO_IMAGES = [
-    '/hero1.png',
-    '/hero2.png',
-    '/hero3.png',
+    '/hero1.jpeg',
+    '/hero2.jpeg',
+    '/hero3.jpeg',
 ]
 
 export default function HeroCarousel() {

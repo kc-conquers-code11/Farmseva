@@ -18,7 +18,8 @@ import {
   Cell,
 } from "recharts";
 
-import Navbar from "@/app/components/Navbar";
+import { Navbar } from "@/app/components/Navbar";
+import { Footer } from "@/app/components/Footer";
 import Card from "@/app/components/Card";
 import { useSupabaseUser } from "@/hooks/useSupabaseUser";
 
@@ -97,7 +98,7 @@ export default function VetDashboardPage() {
     <div className="min-h-screen bg-neutral-50 font-sans">
       <Navbar />
 
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32">
         
         {/* === LEFT SIDEBAR === */}
         <aside className="w-full md:w-72 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-x-auto md:overflow-y-auto no-scrollbar md:pr-4 py-4 md:py-8 flex-shrink-0">
@@ -394,6 +395,7 @@ export default function VetDashboardPage() {
 
         </main>
       </div>
+      <Footer />
     </div>
   );
 }

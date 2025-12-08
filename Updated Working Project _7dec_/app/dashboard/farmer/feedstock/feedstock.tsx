@@ -2,7 +2,8 @@
 
 import { useState, useEffect, ChangeEvent, FormEvent, useMemo } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import Navbar from "@/app/components/Navbar";
+import { Navbar } from "@/app/components/Navbar";
+import { Footer } from "@/app/components/Footer";
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Package, Plus, Minus, History, 
@@ -211,7 +212,7 @@ export default function FeedStockPage() {
         <div className="min-h-screen bg-neutral-50 font-sans">
             <Navbar />
 
-            <div className="pt-20 pb-12 px-4 md:px-8 max-w-[1600px] mx-auto">
+            <div className="pt-32 pb-12 px-4 md:px-8 max-w-[1600px] mx-auto">
                 
                 {/* Header & Stats */}
                 <div className="mb-8">
@@ -463,5 +464,6 @@ export default function FeedStockPage() {
                 </div>
             </div>
         </div>
+        <Footer />
     );
 }

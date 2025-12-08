@@ -2,11 +2,13 @@
 
 import { AppProvider } from '../../poultry-analytics-components/context/AppContext';
 import ChicksEntry from '../../poultry-analytics-components/pages/ChicksEntry';
+import { Footer } from '@/app/components/Footer';
 
 export default function Page() {
     return (
         <AppProvider>
             <ChicksEntry />
+            <Footer />
         </AppProvider>
     );
 }

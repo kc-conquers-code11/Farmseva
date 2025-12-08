@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 // IMPORT NAVBAR
-import Navbar from '../components/Navbar'
+import { Navbar } from '../components/Navbar'
+import { Footer } from '../components/Footer'
 
 export default function AboutPage() {
   
@@ -168,6 +169,7 @@ export default function AboutPage() {
         </div>
       </footer>
 
+      <Footer />
     </div>
   )
 }

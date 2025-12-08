@@ -6,7 +6,8 @@ import { Icon } from "@iconify/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Components
-import Navbar from "@/app/components/Navbar";
+import {Navbar}  from "@/app/components/Navbar";
+import { Footer } from "@/app/components/Footer";
 import Card from "@/app/components/Card";
 import DiseaseAlertsDashboard from "./outbreaks/DiseaseAlertsDashboard";
 import VetList from "./components/VetList";
@@ -324,7 +325,7 @@ export default function FarmerDashboardPage() {
       <Navbar />
 
       {/* Main Layout Container - Split Screen for Desktop */}
-      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-16">
+      <div className="flex-1 max-w-[1600px] mx-auto w-full flex flex-col md:flex-row pt-32">
         
         {/* === LEFT SIDEBAR VERTICAL TABS === */}
         <aside className="w-full md:w-72 bg-white md:bg-transparent z-40 border-b md:border-b-0 md:border-r border-neutral-200 sticky top-16 md:h-[calc(100vh-64px)] overflow-x-auto md:overflow-y-auto no-scrollbar md:pr-4 py-4 md:py-8 flex-shrink-0">
@@ -954,6 +955,7 @@ export default function FarmerDashboardPage() {
           )}
         </main>
       </div>
+      <Footer />
     </div>
   );
 }
